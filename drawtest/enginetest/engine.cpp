@@ -1,58 +1,47 @@
 #include "Engine.hpp"
 #include <iostream>
 #include <chrono>
-#include <thread>
 
 void Engine::init() {
-    is_running = true;
-
-    // Cube klaarzetten
-    cube = GameObject{ .mesh = Mesh::create_cube(), .transform = Transform{} };
-    cube.transform.position = Vec{0.0f, 0.0f, -3.0f, 1.0f}; // Plaats de kubus 3 eenheden voor de camera
-    cube.transform.scale = Vec{1.0f, 1.0f, 1.0f, 1.0f};
-
-    // Set up Perspectief Projectie (zp = -1)
-    projection_matrix = create_projection_perspective(-1.0f);
-
-    // Set up Screen Matrix (Schaal naar bijv. 800x600 pixels en verplaats naar het midden)
-    Matrix S_screen = create_scale(200.0f, 200.0f, 1.0f);
-    Matrix T_screen = create_translation(400.0f, 300.0f, 0.0f);
-    
-    screen_matrix = T_screen;
-    multiply(screen_matrix, S_screen);
-
-    std::cout << "[Engine Initialized]\n";
+    cube.mesh = Mesh::create_cube();
+    cube.position = Vec{0.0f, 0.0f, -3.5f, 1.0f};
+    cube.rotation = Vec{0.0f, 0.0f, 0.0f, 0.0f};
 }
 
 void Engine::update(float dt) {
     current_time += dt;
 
-    // Animeer de rotatie van de kubus op basis van verlopen tijd (DeltaTime)
-    cube.transform.rotation.y += 1.0f * dt; // 1 radiaal per seconde rond Y-as
-    cube.transform.rotation.x += 0.5f * dt; // 0.5 radiaal per seconde rond X-as
+    // Roteer de kubus (graden per seconde)
+    cube.rotation.y += 60.0f * dt;
+    cube.rotation.x += 30.0f * dt;
 }
 
 void Engine::render() {
-    // 1. Bereken Model Matrix & MVP
-    Matrix model = cube.transform.get_model_matrix();
-    Matrix mvp = screen_matrix;
-    multiply(mvp, projection_matrix);
-    multiply(mvp, model);
+    // 1. Bouw de transformatiestap met de subclasses uit library.hpp
+    Translate T_world(cube.position);
+    Rotate R_y(Axis::Y, cube.rotation.y);
+    Rotate R_x(Axis::X, cube.rotation.x);
 
-    // 2. Transformeer vertices
+    Transform model = T_world * R_y * R_x;
+
+    Perspective proj(60.0f);
+    Scale S_screen(200.0f, 200.0f, 1.0f);
+    Translate T_screen(400.0f, 300.0f, 0.0f);
+
+    Transform mvp = T_screen * S_screen * proj * model;
+
+    // 2. Transformeer alle vertices
     std::vector<Vec> transformed_vertices;
     for (const auto& v : cube.mesh.vertices) {
-        Vec projected = multiply(mvp, v);
-        perspective_divide(projected);
+        Vec projected = mvp * v;
         transformed_vertices.push_back(projected);
     }
 
-    // 3. Teken de ribben met de draw-library op het scherm
+    // 3. Teken de ribben
     for (const auto& edge : cube.mesh.edges) {
         const Vec& p1 = transformed_vertices[edge.v1];
         const Vec& p2 = transformed_vertices[edge.v2];
 
-        // Gebruik de lijn-tekenfunctie van je draw-library
         d.line(p1.x, p1.y, p2.x, p2.y);
     }
 }
@@ -62,17 +51,14 @@ void Engine::run() {
 
     auto last_time = std::chrono::high_resolution_clock::now();
 
-    // Gameloop draait zolang het venster open is
     while (d.isOpen()) {
         auto current_frame_time = std::chrono::high_resolution_clock::now();
         float dt = std::chrono::duration<float>(current_frame_time - last_time).count();
         last_time = current_frame_time;
 
-        d.clear();  // Scherm leegmaken voor het nieuwe frame
-
-        update(dt); // Posities/rotaties bijwerken
-        render();   // Lijnen tekenen
-
-        d.display(); // Frame weergeven in het venster
+        d.clear();
+        update(dt);
+        render();
+        d.display();
     }
 }

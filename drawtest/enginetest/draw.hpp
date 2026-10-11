@@ -1,7 +1,7 @@
 #ifndef DRAW_HPP
 #define DRAW_HPP
 
-#include <windows.h>
+#include <Windows.h>
 
 class Draw {
 private:

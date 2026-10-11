@@ -3,134 +3,108 @@
 #include <iomanip>
 #include <cmath>
 
-
-// VECTOR IMPLEMENTATIE
-
+constexpr float PI = 3.14159265358979323846f;
 
 void print(const Vec &vec) {
     std::cout << "(" << vec.x << ", " << vec.y << ", " << vec.z << ", " << vec.w << ")\n";
 }
 
-void perspective_divide(Vec &vec) {
-    if (std::abs(vec.w) > 1e-6f) {
-        vec.x /= vec.w;
-        vec.y /= vec.w;
-        vec.z /= vec.w;
-        vec.w = 1.0f;
-    }
-}
-
-
-// MATRIX IMPLEMENTATIE
-
-
-void print(const Matrix &matrix) {
+void Matrix::print() const {
     for (int i = 0; i < 4; ++i) {
         std::cout << "[ ";
         for (int j = 0; j < 4; ++j) {
-            std::cout << std::setw(8) << std::setprecision(3) << matrix.m[i][j] << " ";
+            std::cout << std::setw(8) << std::setprecision(3) << m[i][j] << " ";
         }
         std::cout << "]\n";
     }
 }
 
-void multiply(Matrix &matrix, float factor) {
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            matrix.m[i][j] *= factor;
-        }
+// --- TRANSFORM IMPLEMENTATIE ---
+
+Transform::Transform() : Matrix() {}
+
+Transform::Transform(const Matrix& mat) : Matrix(mat) {}
+
+Vec Transform::operator*(const Vec& v) const {
+    Vec res;
+    res.x = m[0][0]*v.x + m[0][1]*v.y + m[0][2]*v.z + m[0][3]*v.w;
+    res.y = m[1][0]*v.x + m[1][1]*v.y + m[1][2]*v.z + m[1][3]*v.w;
+    res.z = m[2][0]*v.x + m[2][1]*v.y + m[2][2]*v.z + m[2][3]*v.w;
+    res.w = m[3][0]*v.x + m[3][1]*v.y + m[3][2]*v.z + m[3][3]*v.w;
+
+    // Automatische perspectiefdeling zoals geëist in de opdracht
+    if (std::abs(res.w) > 1e-6f) {
+        res.x /= res.w;
+        res.y /= res.w;
+        res.z /= res.w;
+        res.w = 1.0f;
     }
+    return res;
 }
 
-void multiply(Matrix &matrix, const Matrix &matrix1) {
-    Matrix res{};
+Transform Transform::operator*(const Matrix& other) const {
+    Transform res;
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
             res.m[i][j] = 0.0f;
             for (int k = 0; k < 4; ++k) {
-                res.m[i][j] += matrix.m[i][k] * matrix1.m[k][j];
+                res.m[i][j] += this->m[i][k] * other.m[k][j];
             }
         }
     }
-    matrix = res;
-}
-
-Vec multiply(const Matrix &matrix, const Vec &vec) {
-    Vec res;
-    res.x = matrix.m[0][0] * vec.x + matrix.m[0][1] * vec.y + matrix.m[0][2] * vec.z + matrix.m[0][3] * vec.w;
-    res.y = matrix.m[1][0] * vec.x + matrix.m[1][1] * vec.y + matrix.m[1][2] * vec.z + matrix.m[1][3] * vec.w;
-    res.z = matrix.m[2][0] * vec.x + matrix.m[2][1] * vec.y + matrix.m[2][2] * vec.z + matrix.m[2][3] * vec.w;
-    res.w = matrix.m[3][0] * vec.x + matrix.m[3][1] * vec.y + matrix.m[3][2] * vec.z + matrix.m[3][3] * vec.w;
     return res;
 }
 
-// TRANSFORMATIES & PROJECTIES
+// --- SUBCLASSES IMPLEMENTATIES ---
 
-Matrix create_scale(float sx, float sy, float sz) {
-    Matrix mat{};
-    mat.m[0][0] = sx;
-    mat.m[1][1] = sy;
-    mat.m[2][2] = sz;
-    return mat;
+// Scale
+Scale::Scale(float s) : Scale(s, s, s) {}
+
+Scale::Scale(float sx, float sy, float sz) {
+    m[0][0] = sx;
+    m[1][1] = sy;
+    m[2][2] = sz;
 }
 
-Matrix create_translation(float tx, float ty, float tz) {
-    Matrix mat{};
-    mat.m[0][3] = tx;
-    mat.m[1][3] = ty;
-    mat.m[2][3] = tz;
-    return mat;
+// Rotate
+Rotate::Rotate(Axis axis, float degrees) {
+    float rad = degrees * (PI / 180.0f);
+    float c = std::cos(rad);
+    float s = std::sin(rad);
+
+    switch (axis) {
+        case Axis::X:
+            m[1][1] = c;  m[1][2] = -s;
+            m[2][1] = s;  m[2][2] = c;
+            break;
+        case Axis::Y:
+            m[0][0] = c;  m[0][2] = s;
+            m[2][0] = -s; m[2][2] = c;
+            break;
+        case Axis::Z:
+            m[0][0] = c;  m[0][1] = -s;
+            m[1][0] = s;  m[1][1] = c;
+            break;
+    }
 }
 
-Matrix create_rotation_x(float angle_rad) {
-    Matrix mat{};
-    float c = std::cos(angle_rad);
-    float s = std::sin(angle_rad);
-    mat.m[1][1] = c;  mat.m[1][2] = -s;
-    mat.m[2][1] = s;  mat.m[2][2] = c;
-    return mat;
+// Translate
+Translate::Translate(const Vec& t) : Translate(t.x, t.y, t.z) {}
+
+Translate::Translate(float tx, float ty, float tz) {
+    m[0][3] = tx;
+    m[1][3] = ty;
+    m[2][3] = tz;
 }
 
-Matrix create_rotation_y(float angle_rad) {
-    Matrix mat{};
-    float c = std::cos(angle_rad);
-    float s = std::sin(angle_rad);
-    mat.m[0][0] = c;   mat.m[0][2] = s;
-    mat.m[2][0] = -s;  mat.m[2][2] = c;
-    return mat;
-}
+// Perspective
+Perspective::Perspective(float fov_degrees) {
+    float fov_rad = fov_degrees * (PI / 180.0f);
+    float zp = 1.0f / std::tan(fov_rad / 2.0f);
 
-Matrix create_projection_ortho() {
-    Matrix mat{};
-    mat.m[2][2] = 0.0f;
-    return mat;
-}
-
-Matrix create_projection_parallel() {
-    Matrix mat{};
-    mat.m[0][2] = 0.5f;
-    mat.m[1][2] = 0.5f;
-    mat.m[2][2] = 0.0f;
-    return mat;
-}
-
-Matrix create_projection_iso() {
-    Matrix mat{};
-    mat.m[0][0] = 1.0f / std::sqrt(2.0f);
-    mat.m[0][2] = 1.0f / std::sqrt(2.0f);
-    mat.m[1][0] = 1.0f / std::sqrt(6.0f);
-    mat.m[1][1] = std::sqrt(2.0f / 3.0f);
-    mat.m[1][2] = -1.0f / std::sqrt(6.0f);
-    mat.m[2][2] = 0.0f;
-    return mat;
-}
-
-Matrix create_projection_perspective(float zp) {
-    Matrix mat{};
-    mat.m[0][0] = zp;
-    mat.m[1][1] = zp;
-    mat.m[2][2] = zp;
-    mat.m[3][2] = 1.0f;
-    mat.m[3][3] = 0.0f;
-    return mat;
+    m[0][0] = zp;
+    m[1][1] = zp;
+    m[2][2] = zp;
+    m[3][2] = 1.0f;
+    m[3][3] = 0.0f;
 }

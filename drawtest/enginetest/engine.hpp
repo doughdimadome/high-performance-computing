@@ -1,58 +1,41 @@
 #ifndef ENGINE_HPP
 #define ENGINE_HPP
 
-#include <vector>
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include "library.hpp"
-#include "draw.hpp"
 
-struct Edge {
-    int v1;
-    int v2;
+// Single definition van Vertex struct
+struct Vertex {
+    float x, y, z;        // Positie
+    float nx, ny, nz;     // Normaal
+    float u, v;           // UV Texture coördinaten
 };
 
 struct Mesh {
-    std::vector<Vec> vertices;
-    std::vector<Edge> edges;
+    GLuint vao = 0;
+    GLuint vbo = 0;
+    GLuint ebo = 0;
+    unsigned int index_count = 0;
 
-    static Mesh create_cube() {
-        Mesh cube;
-        cube.vertices = {
-            { 1.0f,  1.0f,  1.0f, 1.0f},
-            { 1.0f, -1.0f,  1.0f, 1.0f},
-            {-1.0f, -1.0f,  1.0f, 1.0f},
-            {-1.0f,  1.0f,  1.0f, 1.0f},
-            { 1.0f,  1.0f, -1.0f, 1.0f},
-            { 1.0f, -1.0f, -1.0f, 1.0f},
-            {-1.0f, -1.0f, -1.0f, 1.0f},
-            {-1.0f,  1.0f, -1.0f, 1.0f}
-        };
-        cube.edges = {
-            {0, 1}, {1, 2}, {2, 3}, {3, 0},
-            {4, 5}, {5, 6}, {6, 7}, {7, 4},
-            {0, 4}, {1, 5}, {2, 6}, {3, 7}
-        };
-        return cube;
-    }
-};
-
-// Bewaar positie en rotatie direct in het GameObject
-struct GameObject {
-    Mesh mesh;
-    Vec position{0.0f, 0.0f, 0.0f, 1.0f};
-    Vec rotation{0.0f, 0.0f, 0.0f, 0.0f}; // x, y, z hoeken in graden
+    void create_cube_gpu();
 };
 
 class Engine {
 private:
-    Draw d;
-    float current_time{0.0f};
+    GLFWwindow* window = nullptr;
+    GLuint shaderProgram = 0;
+    Mesh cube_mesh;
+
+    Vec position{0.0f, 0.0f, 0.0f, 1.0f};
+    Vec rotation{0.0f, 0.0f, 0.0f, 0.0f};
 
 public:
-    GameObject cube;
+    Engine() = default;
+    ~Engine();
 
-    void init();
-    void update(float dt);
-    void render();
+    bool init_window(int width = 800, int height = 600, const char* title = "3D Engine");
+    bool init_shaders();
     void run();
 };
 

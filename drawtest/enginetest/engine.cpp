@@ -1,64 +1,199 @@
-#include "Engine.hpp"
+#include "engine.hpp"
 #include <iostream>
-#include <chrono>
+#include <cstddef>
 
-void Engine::init() {
-    cube.mesh = Mesh::create_cube();
-    cube.position = Vec{0.0f, 0.0f, -3.5f, 1.0f};
-    cube.rotation = Vec{0.0f, 0.0f, 0.0f, 0.0f};
+void Mesh::create_cube_gpu() {
+    Vertex vertices[] = {
+        // Front face (Z+)
+        {-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f},
+         {0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f},
+         {0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f},
+        {-0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f},
+
+        // Back face (Z-)
+        {-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f},
+        {-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f},
+         {0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f},
+         {0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f},
+
+        // Top face (Y+)
+        {-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f},
+        {-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f},
+         {0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f},
+         {0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f},
+
+        // Bottom face (Y-)
+        {-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f},
+         {0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f},
+         {0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f},
+        {-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f},
+
+        // Right face (X+)
+         {0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f},
+         {0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f},
+         {0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f},
+         {0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f},
+
+        // Left face (X-)
+        {-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f},
+        {-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f},
+        {-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f},
+        {-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f}
+    };
+
+    unsigned int indices[] = {
+        0,  1,  2,  2,  3,  0,   // Front
+        4,  5,  6,  6,  7,  4,   // Back
+        8,  9,  10, 10, 11, 8,   // Top
+        12, 13, 14, 14, 15, 12,  // Bottom
+        16, 17, 18, 18, 19, 16,  // Right
+        20, 21, 22, 22, 23, 20   // Left
+    };
+
+    index_count = sizeof(indices) / sizeof(unsigned int);
+
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
+
+    glBindVertexArray(vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, nx));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
+    glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0);
 }
 
-void Engine::update(float dt) {
-    current_time += dt;
+bool Engine::init_window(int width, int height, const char* title) {
+    if (!glfwInit()) {
+        std::cerr << "Fout bij initialiseren van GLFW!" << std::endl;
+        return false;
+    }
 
-    // Roteer de kubus (graden per seconde)
-    cube.rotation.y += 60.0f * dt;
-    cube.rotation.x += 30.0f * dt;
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    window = glfwCreateWindow(width, height, title, nullptr, nullptr);
+    if (!window) {
+        std::cerr << "Fout bij aanmaken van GLFW-venster!" << std::endl;
+        glfwTerminate();
+        return false;
+    }
+
+    glfwMakeContextCurrent(window);
+
+    glewExperimental = GL_TRUE;
+    if (glewInit() != GLEW_OK) {
+        std::cerr << "Fout bij initialiseren van GLEW!" << std::endl;
+        return false;
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    return true;
 }
 
-void Engine::render() {
-    // 1. Bouw de transformatiestap met de subclasses uit library.hpp
-    Translate T_world(cube.position);
-    Rotate R_y(Axis::Y, cube.rotation.y);
-    Rotate R_x(Axis::X, cube.rotation.x);
+bool Engine::init_shaders() {
+    const char* vertexShaderSource = R"(
+        #version 330 core
+        layout (location = 0) in vec3 aPos;
+        layout (location = 1) in vec3 aNormal;
+        layout (location = 2) in vec2 aTexCoord;
 
-    Transform model = T_world * R_y * R_x;
+        uniform mat4 model;
+        uniform mat4 view;
+        uniform mat4 projection;
 
-    Perspective proj(60.0f);
-    Scale S_screen(200.0f, 200.0f, 1.0f);
-    Translate T_screen(400.0f, 300.0f, 0.0f);
+        out vec3 Normal;
 
-    Transform mvp = T_screen * S_screen * proj * model;
+        void main() {
+            gl_Position = projection * view * model * vec4(aPos, 1.0);
+            Normal = mat3(model) * aNormal;
+        }
+    )";
 
-    // 2. Transformeer alle vertices
-    std::vector<Vec> transformed_vertices;
-    for (const auto& v : cube.mesh.vertices) {
-        Vec projected = mvp * v;
-        transformed_vertices.push_back(projected);
-    }
+    const char* fragmentShaderSource = R"(
+        #version 330 core
+        in vec3 Normal;
+        out vec4 FragColor;
 
-    // 3. Teken de ribben
-    for (const auto& edge : cube.mesh.edges) {
-        const Vec& p1 = transformed_vertices[edge.v1];
-        const Vec& p2 = transformed_vertices[edge.v2];
+        void main() {
+            vec3 lightDir = normalize(vec3(0.5, 1.0, 1.0));
+            float diff = max(dot(normalize(Normal), lightDir), 0.2);
+            vec3 objectColor = vec3(0.2, 0.6, 1.0);
+            FragColor = vec4(objectColor * diff, 1.0);
+        }
+    )";
 
-        d.line(p1.x, p1.y, p2.x, p2.y);
-    }
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+
+    shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    cube_mesh.create_cube_gpu();
+    return true;
 }
 
 void Engine::run() {
-    init();
+    float angle = 0.0f;
 
-    auto last_time = std::chrono::high_resolution_clock::now();
+    while (!glfwWindowShouldClose(window)) {
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    while (d.isOpen()) {
-        auto current_frame_time = std::chrono::high_resolution_clock::now();
-        float dt = std::chrono::duration<float>(current_frame_time - last_time).count();
-        last_time = current_frame_time;
+        angle += 0.01f;
 
-        d.clear();
-        update(dt);
-        render();
-        d.display();
+        RotateY model_rot(angle);
+        Translate model_pos(position.x, position.y, position.z);
+        Matrix4 model = model_pos * model_rot;
+
+        Translate view(0.0f, 0.0f, -4.0f);
+        Perspective projection(45.0f, 800.0f / 600.0f, 0.1f, 100.0f);
+
+        glUseProgram(shaderProgram);
+
+        GLint loc_model = glGetUniformLocation(shaderProgram, "model");
+        GLint loc_view = glGetUniformLocation(shaderProgram, "view");
+        GLint loc_proj = glGetUniformLocation(shaderProgram, "projection");
+
+        if (loc_model != -1) glUniformMatrix4fv(loc_model, 1, GL_TRUE, &model.m[0][0]);
+        if (loc_view != -1)  glUniformMatrix4fv(loc_view, 1, GL_TRUE, &view.m[0][0]);
+        if (loc_proj != -1)  glUniformMatrix4fv(loc_proj, 1, GL_TRUE, &projection.m[0][0]);
+
+        glBindVertexArray(cube_mesh.vao);
+        glDrawElements(GL_TRIANGLES, cube_mesh.index_count, GL_UNSIGNED_INT, 0);
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
     }
+}
+
+Engine::~Engine() {
+    if (window) {
+        glfwDestroyWindow(window);
+    }
+    glfwTerminate();
 }

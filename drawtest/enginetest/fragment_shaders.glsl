@@ -10,7 +10,8 @@ uniform vec3 lightPos;
 uniform vec3 viewPos;
 
 void main() {
-    vec3 lightColor = vec3(1.0, 1.0, 1.0);
+    vec3 lightPos = vec3(0.2f, -2.0f, 0.0f);
+    vec3 lightColor = vec3(0.5f, 0.5f, 0.5f);
     vec3 baseColor = texture(ourTexture, TexCoord).rgb;
 
     // 1. Ambient Lighting 
@@ -27,10 +28,20 @@ void main() {
     float specularStrength = 0.3;
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32); // Shininess = 32
-    vec3 specular = specularStrength * spec * lightColor;
+    // In de fragment shader:
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    vec3 specular = lightColor * (spec * material.specular);
 
     // Gecombineerde kleur (Ambient + Diffuse + Specular) * Texture
     vec3 result = (ambient + diffuse) * baseColor + specular;
     FragColor = vec4(result, 1.0);
+
+    struct Material {
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+    float shininess;
+    };
+
+    uniform Material material;
 }

@@ -14,20 +14,21 @@ void Shape::setupGpuBuffers(const std::vector<Vertex>& vertices, const std::vect
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    // Vertex attributen instellen op basis van de Vertex struct layout
+    // Attribute 0: Positie (3 floats)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
     glEnableVertexAttribArray(0);
 
+    // Attribute 1: Normaal (3 floats)
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, nx));
     glEnableVertexAttribArray(1);
 
+    // Attribute 2: UV TexCoord (2 floats)
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, u));
     glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 }
 
-// Virtuele destructor verwijdert GPU buffers bij geheugenvrijgave
 Shape::~Shape() {
     if (vao) glDeleteVertexArrays(1, &vao);
     if (vbo) glDeleteBuffers(1, &vbo);
@@ -40,7 +41,7 @@ void Shape::draw() const {
     glBindVertexArray(0);
 }
 
-// 1. KUBUS (Middelpunt 0,0,0 - Ribbe 1)
+// 1. KUBUS (24 vertices voor unieke per-vlak normalen)
 void Cube::generateGeometry() {
     std::vector<Vertex> vertices = {
         // Front (Z+)
@@ -63,17 +64,29 @@ void Cube::generateGeometry() {
     setupGpuBuffers(vertices, indices);
 }
 
-// 2. PIRAMIDE (Grondvlak ribbe 1 rond (0, -0.5, 0) met hoogte 1)
+// 2. PIRAMIDE
 void Pyramid::generateGeometry() {
     std::vector<Vertex> vertices = {
         // Grondvlak (Y-)
         {-0.5f, -0.5f, -0.5f,  0,-1,0,  0,0}, { 0.5f, -0.5f, -0.5f,  0,-1,0,  1,0},
-         {0.5f, -0.5f,  0.5f,  0,-1,0,  1,1}, {-0.5f, -0.5f,  0.5f,  0,-1,0,  0,1},
-        // Zijvlakken met schuine normalen
-        {-0.5f, -0.5f,  0.5f,  0, 0.707f, 0.707f, 0,0}, { 0.5f, -0.5f,  0.5f, 0, 0.707f, 0.707f, 1,0}, {0.0f, 0.5f, 0.0f, 0, 0.707f, 0.707f, 0.5f,1},
-        { 0.5f, -0.5f,  0.5f,  0.707f, 0.707f, 0, 0,0}, { 0.5f, -0.5f, -0.5f, 0.707f, 0.707f, 0, 1,0}, {0.0f, 0.5f, 0.0f, 0.707f, 0.707f, 0, 0.5f,1},
-        { 0.5f, -0.5f, -0.5f,  0, 0.707f, -0.707f, 0,0}, {-0.5f, -0.5f, -0.5f, 0, 0.707f, -0.707f, 1,0}, {0.0f, 0.5f, 0.0f, 0, 0.707f, -0.707f, 0.5f,1},
-        {-0.5f, -0.5f, -0.5f, -0.707f, 0.707f, 0, 0,0}, {-0.5f, -0.5f,  0.5f, -0.707f, 0.707f, 0, 1,0}, {0.0f, 0.5f, 0.0f, -0.707f, 0.707f, 0, 0.5f,1}
+        {0.5f, -0.5f,  0.5f,  0,-1,0,  1,1}, {-0.5f, -0.5f,  0.5f,  0,-1,0,  0,1},
+        
+        // Zijvlakken met correcte UV-driehoeksmapping (onder min-Y tot top op Y=0.5)
+        {-0.5f, -0.5f,  0.5f,  0, 0.707f,  0.707f,  0.0f, 0.0f},
+        { 0.5f, -0.5f,  0.5f,  0, 0.707f,  0.707f,  1.0f, 0.0f},
+        { 0.0f,  0.5f,  0.0f,  0, 0.707f,  0.707f,  0.5f, 1.0f},
+
+        { 0.5f, -0.5f,  0.5f,  0.707f, 0.707f, 0,  0.0f, 0.0f},
+        { 0.5f, -0.5f, -0.5f,  0.707f, 0.707f, 0,  1.0f, 0.0f},
+        { 0.0f,  0.5f,  0.0f,  0.707f, 0.707f, 0,  0.5f, 1.0f},
+
+        { 0.5f, -0.5f, -0.5f,  0, 0.707f, -0.707f,  0.0f, 0.0f},
+        {-0.5f, -0.5f, -0.5f,  0, 0.707f, -0.707f,  1.0f, 0.0f},
+        { 0.0f,  0.5f,  0.0f,  0, 0.707f, -0.707f,  0.5f, 1.0f},
+
+        {-0.5f, -0.5f, -0.5f, -0.707f, 0.707f, 0,  0.0f, 0.0f},
+        {-0.5f, -0.5f,  0.5f, -0.707f, 0.707f, 0,  1.0f, 0.0f},
+        { 0.0f,  0.5f,  0.0f, -0.707f, 0.707f, 0,  0.5f, 1.0f}
     };
     std::vector<unsigned int> indices = {
         0,2,1, 0,3,2,
@@ -82,7 +95,7 @@ void Pyramid::generateGeometry() {
     setupGpuBuffers(vertices, indices);
 }
 
-// 3. CILINDER (Middelpunt 0,0,0 - Hoogte 1 - Diameter 1)
+// 3. CILINDER (Inclusief boven- en onderkap)
 void Cylinder::generateGeometry() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
@@ -95,8 +108,9 @@ void Cylinder::generateGeometry() {
         float angle = i * (2.0f * PI / sectors);
         float x = radius * std::cos(angle);
         float z = radius * std::sin(angle);
-        float u = (float)i / sectors;
+        float u = (float)i / sectors; // Loopt horizontaal van 0.0 naar 1.0 om de cilinder
 
+        // Onderste vertex -> v = 0.0, Bovenste vertex -> v = 1.0
         vertices.push_back({x, -height/2.0f, z, std::cos(angle), 0.0f, std::sin(angle), u, 0.0f});
         vertices.push_back({x,  height/2.0f, z, std::cos(angle), 0.0f, std::sin(angle), u, 1.0f});
     }
@@ -111,7 +125,7 @@ void Cylinder::generateGeometry() {
         indices.push_back((i + 1) * 2);
     }
 
-    // Bovenkant (Top Cap)
+    // Top Cap (Bovendeksel)
     unsigned int topCenterIndex = vertices.size();
     vertices.push_back({0.0f, height/2.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 0.5f});
 
@@ -130,7 +144,7 @@ void Cylinder::generateGeometry() {
         indices.push_back(topCenterIndex + 1 + i);
     }
 
-    // Onderkant (Bottom Cap)
+    // Bottom Cap (Onderdeksel)
     unsigned int bottomCenterIndex = vertices.size();
     vertices.push_back({0.0f, -height/2.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.5f, 0.5f});
 
@@ -152,7 +166,7 @@ void Cylinder::generateGeometry() {
     setupGpuBuffers(vertices, indices);
 }
 
-// 4. BOL (Middelpunt 0,0,0 - Diameter 1)
+// 4. BOL
 void Sphere::generateGeometry() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
@@ -160,16 +174,19 @@ void Sphere::generateGeometry() {
     const unsigned int Y_SEGMENTS = 20;
     const float r = 0.5f;
 
-    for (unsigned int x = 0; x <= X_SEGMENTS; ++x) {
-        for (unsigned int y = 0; y <= Y_SEGMENTS; ++y) {
+    for (unsigned int y = 0; y <= Y_SEGMENTS; ++y) {
+        for (unsigned int x = 0; x <= X_SEGMENTS; ++x) {
             float xSegment = (float)x / (float)X_SEGMENTS;
             float ySegment = (float)y / (float)Y_SEGMENTS;
+
             float xPos = r * std::cos(xSegment * 2.0f * PI) * std::sin(ySegment * PI);
             float yPos = r * std::cos(ySegment * PI);
             float zPos = r * std::sin(xSegment * 2.0f * PI) * std::sin(ySegment * PI);
 
             Vec3 norm = normalize({xPos, yPos, zPos});
-            vertices.push_back({xPos, yPos, zPos, norm.x, norm.y, norm.z, xSegment, ySegment});
+            
+            // u loopt rondom (0 -> 1), v loopt van top naar bodem (1 -> 0)
+            vertices.push_back({xPos, yPos, zPos, norm.x, norm.y, norm.z, xSegment, 1.0f - ySegment});
         }
     }
 
@@ -187,7 +204,7 @@ void Sphere::generateGeometry() {
     setupGpuBuffers(vertices, indices);
 }
 
-// Factory Pattern Implementatie
+// Factory Pattern
 std::unique_ptr<Shape> ShapeFactory::createShape(ShapeType type) {
     std::unique_ptr<Shape> shape;
     switch (type) {

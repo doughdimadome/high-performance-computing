@@ -7,17 +7,14 @@
 #include "library.hpp"
 #include "camera_light.hpp"
 
-// Interleaved vertex opbouw (Positie, Normaal, UV-coördinaat)
+// Interleaved structuur voor vertices (Positie, Normaal, UV-textuurcoördinaat)
 struct Vertex {
     float x, y, z;
     float nx, ny, nz;
     float u, v;
 };
 
-
-// ABSTRACTE BASISKLASSE: Shape
-// Handleiding-eisen: Polymorfisme met virtual functions en RAII
-
+// Abstracte basisklasse voor alle 3D-vormen (Polymorfisme & RAII)
 class Shape {
 protected:
     GLuint vao = 0, vbo = 0, ebo = 0;
@@ -30,11 +27,14 @@ public:
     Vec3 rotation{0.0f, 0.0f, 0.0f};
     Vec3 scale{1.0f, 1.0f, 1.0f};
     Material material;
+    
+    // Uniek OpenGL ID voor geladen textuur (0 = geen eigen textuur, gebruikt standaard)
+    GLuint textureID = 0;
 
     virtual ~Shape();
-    virtual void generateGeometry() = 0; // Pure virtual methode
+    virtual void generateGeometry() = 0; // Zuiver virtuele methode
 
-    // Berekent de Model Matrix: M = T * Ry * Rx * Rz * S
+    // Model Matrix M = T * Ry * Rx * Rz * S
     Matrix4 getModelMatrix() const {
         Translate t(position.x, position.y, position.z);
         RotateX rx(rotation.x);
@@ -47,18 +47,13 @@ public:
     void draw() const;
 };
 
-
-// AFGELEIDE KLASSEN
-// Handleiding-eisen: Kubus, Piramide, Cilinder, Bol
-
+// Afgeleide klasses met specifieke geometriegeneratie
 class Cube : public Shape { public: void generateGeometry() override; };
 class Pyramid : public Shape { public: void generateGeometry() override; };
 class Cylinder : public Shape { public: void generateGeometry() override; };
 class Sphere : public Shape { public: void generateGeometry() override; };
 
-
-// DESIGN PATTERN: Factory Pattern
-// Handleiding-eisen: Relevante design patterns toegepast
+// Factory Pattern voor ontkoppelde objectaanmaak
 enum class ShapeType { CUBE, PYRAMID, CYLINDER, SPHERE };
 
 class ShapeFactory {

@@ -2,42 +2,37 @@
 #define LIBRARY_HPP
 
 #include <cmath>
-#include <iostream>
 
 inline constexpr float PI = 3.14159265359f;
 
-// Basis Transform matrix (4x4 Identiteitsmatrix)
+struct Vec {
+    float x{0.0f}, y{0.0f}, z{0.0f}, w{1.0f};
+};
+
 class Transform {
 public:
-    float m[4][4];
+    float m[4][4]; // Column-major: m[kolom][rij]
 
     inline Transform() {
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                m[i][j] = (i == j) ? 1.0f : 0.0f;
+        for (int c = 0; c < 4; ++c) {
+            for (int r = 0; r < 4; ++r) {
+                m[c][r] = (c == r) ? 1.0f : 0.0f;
             }
         }
     }
 };
 
-// Voeg deze aliases en de eenvoudige Vec struct toe aan library.hpp
-struct Vec {
-    float x{0.0f}, y{0.0f}, z{0.0f}, w{1.0f};
-};
-
 using Matrix4 = Transform;
 
-// Translatie matrix
 class Translate : public Transform {
 public:
     inline Translate(float tx, float ty, float tz) : Transform() {
-        m[0][3] = tx;
-        m[1][3] = ty;
-        m[2][3] = tz;
+        m[3][0] = tx;
+        m[3][1] = ty;
+        m[3][2] = tz;
     }
 };
 
-// Schaal matrix
 class Scale : public Transform {
 public:
     inline Scale(float sx, float sy, float sz) : Transform() {
@@ -47,18 +42,30 @@ public:
     }
 };
 
-// Rotatie om Y-as
 class RotateY : public Transform {
 public:
     inline RotateY(float angle_rad) : Transform() {
-        m[0][0] = std::cos(angle_rad);
-        m[0][2] = std::sin(angle_rad);
-        m[2][0] = -std::sin(angle_rad);
-        m[2][2] = std::cos(angle_rad);
+        float c = std::cos(angle_rad);
+        float s = std::sin(angle_rad);
+        m[0][0] = c;
+        m[0][2] = -s;
+        m[2][0] = s;
+        m[2][2] = c;
     }
 };
 
-// Perspectief projectie matrix
+class RotateX : public Transform {
+public:
+    inline RotateX(float angle_rad) : Transform() {
+        float c = std::cos(angle_rad);
+        float s = std::sin(angle_rad);
+        m[1][1] = c;
+        m[1][2] = s;
+        m[2][1] = -s;
+        m[2][2] = c;
+    }
+};
+
 class Perspective : public Transform {
 public:
     inline Perspective(float fov_degrees, float aspect, float zNear = 0.1f, float zFar = 100.0f) : Transform() {
@@ -68,20 +75,19 @@ public:
         m[0][0] = zp / aspect;
         m[1][1] = zp;
         m[2][2] = (zFar + zNear) / (zNear - zFar);
-        m[2][3] = (2.0f * zFar * zNear) / (zNear - zFar);
-        m[3][2] = -1.0f;
+        m[2][3] = -1.0f;
+        m[3][2] = (2.0f * zFar * zNear) / (zNear - zFar);
         m[3][3] = 0.0f;
     }
 };
 
-// Matrix vermenigvuldiging (Transform * Transform)
 inline Transform operator*(const Transform& a, const Transform& b) {
     Transform result;
-    for (int r = 0; r < 4; ++r) {
-        for (int c = 0; c < 4; ++c) {
-            result.m[r][c] = 0.0f;
+    for (int c = 0; c < 4; ++c) {
+        for (int r = 0; r < 4; ++r) {
+            result.m[c][r] = 0.0f;
             for (int k = 0; k < 4; ++k) {
-                result.m[r][c] += a.m[r][k] * b.m[k][c];
+                result.m[c][r] += a.m[k][r] * b.m[c][k];
             }
         }
     }

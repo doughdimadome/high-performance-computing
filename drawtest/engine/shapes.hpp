@@ -4,17 +4,17 @@
 #include <GL/glew.h>
 #include <vector>
 #include <memory>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include "library.hpp"
 #include "camera_light.hpp"
 
-// Interleaved structuur voor vertices (Positie, Normaal, UV-textuurcoördinaat)
 struct Vertex {
     float x, y, z;
     float nx, ny, nz;
     float u, v;
 };
 
-// Abstracte basisklasse voor alle 3D-vormen (Polymorfisme & RAII)
 class Shape {
 protected:
     GLuint vao = 0, vbo = 0, ebo = 0;
@@ -27,33 +27,30 @@ public:
     Vec3 rotation{0.0f, 0.0f, 0.0f};
     Vec3 scale{1.0f, 1.0f, 1.0f};
     Material material;
-    
-    // Uniek OpenGL ID voor geladen textuur (0 = geen eigen textuur, gebruikt standaard)
     GLuint textureID = 0;
 
     virtual ~Shape();
-    virtual void generateGeometry() = 0; // Zuiver virtuele methode
+    virtual void generateGeometry() = 0;
 
-    // Model Matrix M = T * Ry * Rx * Rz * S
-    Matrix4 getModelMatrix() const {
-        Translate t(position.x, position.y, position.z);
-        RotateX rx(rotation.x);
-        RotateY ry(rotation.y);
-        RotateZ rz(rotation.z);
-        Scale s(scale.x, scale.y, scale.z);
-        return t * ry * rx * rz * s;
+    // MODEL MATRIX: Nu volledig via OpenGL (GLM)
+    glm::mat4 getModelMatrix() const {
+        glm::mat4 model = glm::mat4(1.0f); // Identiteitsmatrix van GLM
+        model = glm::translate(model, glm::vec3(position.x, position.y, position.z));
+        model = glm::rotate(model, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::scale(model, glm::vec3(scale.x, scale.y, scale.z));
+        return model;
     }
 
     void draw() const;
 };
 
-// Afgeleide klasses met specifieke geometriegeneratie
 class Cube : public Shape { public: void generateGeometry() override; };
 class Pyramid : public Shape { public: void generateGeometry() override; };
 class Cylinder : public Shape { public: void generateGeometry() override; };
 class Sphere : public Shape { public: void generateGeometry() override; };
 
-// Factory Pattern voor ontkoppelde objectaanmaak
 enum class ShapeType { CUBE, PYRAMID, CYLINDER, SPHERE };
 
 class ShapeFactory {

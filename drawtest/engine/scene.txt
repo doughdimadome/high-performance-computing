@@ -1,0 +1,7 @@
+# VORM | POS_X POS_Y POS_Z | SCALE_X SCALE_Y SCALE_Z | OPACITY | MATERIAAL_PRESET | TEXTUUR_PAD
+CUBE     -4.0 0.0 0.0    1.0 1.0 1.0    1.0       NONE          ../images/Chuck_Norris_May_2015.jpg
+PYRAMID  -2.4 0.0 0.0    1.0 1.0 1.0    1.0       NONE          ../images/jeff.jpg
+CYLINDER -0.8 0.0 0.0    1.0 1.0 1.0    0.3       NONE          ../images/nico.jpg
+SPHERE    0.8 0.0 0.0    1.0 1.0 1.0    1.0       NONE          ../images/P_Diddy_2000.jpg
+CUBE      2.4 0.0 0.0    1.0 1.0 1.0    1.0       GOLD          NONE
+CUBE      4.0 0.0 0.0    1.0 1.0 1.0    0.6       CYAN_PLASTIC  NONE

@@ -41,7 +41,7 @@ void Shape::draw() const {
     glBindVertexArray(0);
 }
 
-// 1. KUBUS (24 vertices voor unieke per-vlak normalen)
+// KUBUS (24 vertices voor unieke per-vlak normals en UV mapping)
 void Cube::generateGeometry() {
     std::vector<Vertex> vertices = {
         // Front (Z+)
@@ -64,7 +64,7 @@ void Cube::generateGeometry() {
     setupGpuBuffers(vertices, indices);
 }
 
-// 2. PIRAMIDE
+// PIRAMIDE
 void Pyramid::generateGeometry() {
     std::vector<Vertex> vertices = {
         // Grondvlak (Y-)
@@ -95,7 +95,7 @@ void Pyramid::generateGeometry() {
     setupGpuBuffers(vertices, indices);
 }
 
-// 3. CILINDER (Inclusief boven- en onderkap)
+// CILINDER 
 void Cylinder::generateGeometry() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
@@ -166,7 +166,7 @@ void Cylinder::generateGeometry() {
     setupGpuBuffers(vertices, indices);
 }
 
-// 4. BOL
+// BOL
 void Sphere::generateGeometry() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;

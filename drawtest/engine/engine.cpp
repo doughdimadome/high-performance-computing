@@ -1,8 +1,24 @@
+// Engine implementeren
 #include "engine.hpp"
+#include "materials.hpp"
 #include <iostream>
-
+#include <fstream>
+#include <sstream>
+// GLM voor matrixtransformaties
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+// STB Image voor textuur laden
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+// Callback functie voor muis scrollen (zoom)
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    Engine* engine = static_cast<Engine*>(glfwGetWindowUserPointer(window));
+    if (engine) {
+        engine->camera.zoom(static_cast<float>(yoffset));
+    }
+}
 
 GLuint Engine::loadTexture(const char* filepath) {
     GLuint textureID;
@@ -31,6 +47,58 @@ GLuint Engine::loadTexture(const char* filepath) {
     return textureID;
 }
 
+bool Engine::loadSceneFromFile(const std::string& filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "Kon scene bestand niet openen: " << filepath << std::endl;
+        return false;
+    }
+
+    scene.clear();
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') continue;
+
+        std::stringstream ss(line);
+        std::string typeStr, materialName, texPath;
+        float px, py, pz, sx, sy, sz, opacity;
+
+        if (ss >> typeStr >> px >> py >> pz >> sx >> sy >> sz >> opacity >> materialName >> texPath) {
+            ShapeType type;
+            if (typeStr == "CUBE") type = ShapeType::CUBE;
+            else if (typeStr == "PYRAMID") type = ShapeType::PYRAMID;
+            else if (typeStr == "CYLINDER") type = ShapeType::CYLINDER;
+            else if (typeStr == "SPHERE") type = ShapeType::SPHERE;
+            else continue;
+
+            auto shape = ShapeFactory::createShape(type);
+            shape->position = {px, py, pz};
+            shape->scale = {sx, sy, sz};
+
+            if (materialName != "NONE") {
+                shape->material = MaterialLibrary::getMaterial(materialName);
+            } else {
+                shape->material.ambient = {0.2f, 0.2f, 0.2f};
+                shape->material.diffuse = {1.0f, 1.0f, 1.0f};
+                shape->material.specular = {0.0f, 0.0f, 0.0f};
+                shape->material.shininess = 1.0f;
+            }
+
+            shape->material.opacity = opacity;
+
+            if (texPath != "NONE") {
+                shape->textureID = loadTexture(texPath.c_str());
+            }
+
+            scene.push_back(std::move(shape));
+        }
+    }
+
+    std::cout << "Succesvol " << scene.size() << " objecten geladen uit " << filepath << std::endl;
+    return true;
+}
+
 bool Engine::init_window(int width, int height, const char* title, bool fullscreen) {
     if (!glfwInit()) return false;
 
@@ -38,19 +106,14 @@ bool Engine::init_window(int width, int height, const char* title, bool fullscre
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWmonitor* primaryMonitor = nullptr;
-
-    // Als fullscreen true is, pak de primaire monitor en zijn maximale resolutie
+    GLFWmonitor* monitor = fullscreen ? glfwGetPrimaryMonitor() : nullptr;
     if (fullscreen) {
-        primaryMonitor = glfwGetPrimaryMonitor();
-        const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
-
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
         width = mode->width;
         height = mode->height;
     }
 
-    // Geef primaryMonitor mee als 4e argument voor fullscreen (nullptr voor venster)
-    window = glfwCreateWindow(width, height, title, primaryMonitor, nullptr);
+    window = glfwCreateWindow(width, height, title, monitor, nullptr);
     if (!window) {
         glfwTerminate();
         return false;
@@ -66,7 +129,9 @@ bool Engine::init_window(int width, int height, const char* title, bool fullscre
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    // Fallback textuur
+    glfwSetWindowUserPointer(window, this);
+    glfwSetScrollCallback(window, scroll_callback);
+
     glGenTextures(1, &defaultTexture);
     glBindTexture(GL_TEXTURE_2D, defaultTexture);
     unsigned char whitePixel[] = { 255, 255, 255, 255 };
@@ -92,7 +157,7 @@ bool Engine::init_shaders() {
 
         void main() {
             FragPos = vec3(model * vec4(aPos, 1.0));
-            Normal = mat3(model) * aNormal;
+            Normal = mat3(transpose(inverse(model))) * aNormal;
             TexCoord = aTexCoord;
             gl_Position = projection * view * model * vec4(aPos, 1.0);
         }
@@ -165,59 +230,77 @@ void Engine::run() {
     float lastFrame = static_cast<float>(glfwGetTime());
     bool firstMouse = true;
     double lastX = 512.0, lastY = 384.0;
+    float rotationSpeed = 1.0f;
+    bool enableRotation = true;
+    bool rKeyPressed = false;
+    int colorCycle = 0;
+    bool cKeyPressed = false;
+
+    auto lightMarker = ShapeFactory::createShape(ShapeType::SPHERE);
 
     while (!glfwWindowShouldClose(window)) {
-        // Delta Time berekening voor fps-onafhankelijke bewegingssnelheid
         float currentFrame = static_cast<float>(glfwGetTime());
         float deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        
-        // TOETSENBORD INVOER (WASD + Spatie/Shift + Escape)
-        
+        // TOETSENBORD INVOER
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
 
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            camera.moveForward(deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            camera.moveBackward(deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            camera.moveLeft(deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            camera.moveRight(deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-            camera.moveUp(deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-            camera.moveDown(deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.moveForward(deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.moveBackward(deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.moveLeft(deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.moveRight(deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) camera.moveUp(deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) camera.moveDown(deltaTime);
 
-        
-        // MUIS INVOER (Pitch & Yaw)
-        
+        // Rotatie pauzeren (R) 
+        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS && !rKeyPressed) {
+            rKeyPressed = true;
+            enableRotation = !enableRotation;
+        }
+        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_RELEASE) rKeyPressed = false;
+
+        // Licht Positie (I/K/J/L/U/O) 
+        float lightSpeed = 6.0f * deltaTime;
+        if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) light.position.z -= lightSpeed;
+        if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) light.position.z += lightSpeed;
+        if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) light.position.x -= lightSpeed;
+        if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) light.position.x += lightSpeed;
+        if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS) light.position.y += lightSpeed;
+        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) light.position.y -= lightSpeed;
+
+        // Licht Kleur Wisselen (C) 
+        if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS && !cKeyPressed) {
+            cKeyPressed = true;
+            colorCycle = (colorCycle + 1) % 7;
+            if (colorCycle == 0)      light.color = {1.0f, 1.0f, 1.0f};  // Neutraal Wit
+            else if (colorCycle == 1) light.color = {1.0f, 0.85f, 0.6f}; // Warm Zonlicht
+            else if (colorCycle == 2) light.color = {1.0f, 0.2f, 0.2f};  // Rood
+            else if (colorCycle == 3) light.color = {0.2f, 1.0f, 0.2f};  // Groen
+            else if (colorCycle == 4) light.color = {0.2f, 0.5f, 1.0f};  // Blauw
+            else if (colorCycle == 5) light.color = {0.2f, 1.0f, 1.0f};  // Cyan
+            else if (colorCycle == 6) light.color = {1.0f, 0.2f, 1.0f};  // Magenta
+        }
+        if (glfwGetKey(window, GLFW_KEY_C) == GLFW_RELEASE) cKeyPressed = false;
+
+        // MUIS INVOER
         double mouseX, mouseY;
         glfwGetCursorPos(window, &mouseX, &mouseY);
-
-        if (firstMouse) {
-            lastX = mouseX;
-            lastY = mouseY;
-            firstMouse = false;
-        }
+        if (firstMouse) { lastX = mouseX; lastY = mouseY; firstMouse = false; }
 
         float xoffset = static_cast<float>(mouseX - lastX);
-        float yoffset = static_cast<float>(mouseY - lastY); // Omgekeerd omdat Y naar beneden telt op het scherm
-        lastX = mouseX;
-        lastY = mouseY;
+        float yoffset = static_cast<float>(mouseY - lastY);
+        lastX = mouseX; lastY = mouseY;
 
-        float sensitivity = 0.0025f; // Muisgevoeligheid
+        float sensitivity = 0.0025f;
         camera.yaw += xoffset * sensitivity;
         camera.pitch += yoffset * sensitivity;
 
-        // Pitch begrenzen tussen ~ -85 graden (-1.5 rad) en +85 graden (1.5 rad) tegen doordraaien
         if (camera.pitch > 1.5f) camera.pitch = 1.5f;
         if (camera.pitch < -1.5f) camera.pitch = -1.5f;
 
         // RENDEREN
-        
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         if (height == 0) height = 1;
@@ -225,46 +308,35 @@ void Engine::run() {
         glViewport(0, 0, width, height);
         float aspect = static_cast<float>(width) / static_cast<float>(height);
 
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
 
-        float rotationSpeed = 1.0f; 
-
-        // Binnen de render loop:
-        for (size_t i = 0; i < scene.size(); ++i) {
-            auto& shape = scene[i];
-
-            // Draai de vormen elke frame rond
-            shape->rotation.y += rotationSpeed * (i + 1) * deltaTime;
-            shape->rotation.x += rotationSpeed * 0.5f * deltaTime;
-            shape->rotation.z += rotationSpeed * 0.2f * deltaTime;
-
-            Matrix4 model = shape->getModelMatrix();
-            GLint loc_model = glGetUniformLocation(shaderProgram, "model");
-            if (loc_model != -1) glUniformMatrix4fv(loc_model, 1, GL_FALSE, &model.m[0][0]);
-
-        }
-
         Matrix4 view = camera.getViewMatrix();
-        Perspective projection(45.0f, aspect, 0.1f, 100.0f);
-
         GLint loc_view = glGetUniformLocation(shaderProgram, "view");
-        GLint loc_proj = glGetUniformLocation(shaderProgram, "projection");
         if (loc_view != -1) glUniformMatrix4fv(loc_view, 1, GL_FALSE, &view.m[0][0]);
-        if (loc_proj != -1) glUniformMatrix4fv(loc_proj, 1, GL_FALSE, &projection.m[0][0]);
+
+        glm::mat4 projection = glm::perspective(glm::radians(camera.fov), aspect, 0.1f, 100.0f);
+        GLint loc_proj = glGetUniformLocation(shaderProgram, "projection");
+        if (loc_proj != -1) glUniformMatrix4fv(loc_proj, 1, GL_FALSE, glm::value_ptr(projection));
 
         glUniform3f(glGetUniformLocation(shaderProgram, "lightPos"), light.position.x, light.position.y, light.position.z);
         glUniform3f(glGetUniformLocation(shaderProgram, "lightColor"), light.color.x, light.color.y, light.color.z);
         glUniform3f(glGetUniformLocation(shaderProgram, "viewPos"), camera.position.x, camera.position.y, camera.position.z);
 
+        // VORMEN RENDEREN
         for (size_t i = 0; i < scene.size(); ++i) {
             auto& shape = scene[i];
 
-            Matrix4 model = shape->getModelMatrix();
+            if (enableRotation) {
+                shape->rotation.y += rotationSpeed * (i + 1) * deltaTime;
+                // shape->rotation.x += rotationSpeed * 0.5f * deltaTime;
+            }
+
+            glm::mat4 model = shape->getModelMatrix();
             GLint loc_model = glGetUniformLocation(shaderProgram, "model");
-            if (loc_model != -1) glUniformMatrix4fv(loc_model, 1, GL_FALSE, &model.m[0][0]);
+            if (loc_model != -1) glUniformMatrix4fv(loc_model, 1, GL_FALSE, glm::value_ptr(model));
 
             glUniform3f(glGetUniformLocation(shaderProgram, "material.ambient"), shape->material.ambient.x, shape->material.ambient.y, shape->material.ambient.z);
             glUniform3f(glGetUniformLocation(shaderProgram, "material.diffuse"), shape->material.diffuse.x, shape->material.diffuse.y, shape->material.diffuse.z);
@@ -279,6 +351,26 @@ void Engine::run() {
 
             shape->draw();
         }
+
+        // LICHTMARKER RENDEREN 
+        lightMarker->position = light.position;
+        lightMarker->scale = {0.15f, 0.15f, 0.15f};
+        glm::mat4 lightModel = lightMarker->getModelMatrix();
+        
+        GLint loc_model = glGetUniformLocation(shaderProgram, "model");
+        if (loc_model != -1) glUniformMatrix4fv(loc_model, 1, GL_FALSE, glm::value_ptr(lightModel));
+
+        glUniform3f(glGetUniformLocation(shaderProgram, "material.ambient"), light.color.x, light.color.y, light.color.z);
+        glUniform3f(glGetUniformLocation(shaderProgram, "material.diffuse"), light.color.x, light.color.y, light.color.z);
+        glUniform3f(glGetUniformLocation(shaderProgram, "material.specular"), 1.0f, 1.0f, 1.0f);
+        glUniform1f(glGetUniformLocation(shaderProgram, "material.shininess"), 128.0f);
+        glUniform1f(glGetUniformLocation(shaderProgram, "material.opacity"), 1.0f);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, defaultTexture);
+        glUniform1i(glGetUniformLocation(shaderProgram, "uTexture"), 0);
+
+        lightMarker->draw();
 
         glfwSwapBuffers(window);
         glfwPollEvents();

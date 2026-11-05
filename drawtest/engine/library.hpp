@@ -66,8 +66,8 @@ public:
 
     // Identiteitsmatrix (enen op de diagonaal)
     inline Transform() {
-        for (int c = 0; c < 4; ++c) {
-            for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) { 
+            for (int r = 0; r < 4; ++r) { 
                 m[c][r] = (c == r) ? 1.0f : 0.0f;
             }
         }

@@ -28,6 +28,9 @@ int main() {
     std::cout << "Muiswiel              : In-/Uitzoomen (FOV)" << std::endl;
     std::cout << "I / K / J / L / U / O  : Lichtbron verplaatsen" << std::endl;
     std::cout << "C                     : Lichtkleur wisselen" << std::endl;
+    std::cout << "R                     : Rotatie pauzeren/hervatten" << std::endl;
+    std::cout << "1 of 2                   : Wissel tussen Licht 1 en Licht 2" << std::endl;
+    std::cout << "ESC                   : Afsluiten" << std::endl;
 
     engine.run();
 

@@ -58,7 +58,7 @@ inline Vec3 cross(const Vec3& u, const Vec3& v) {
 
 
 // MATRIX 4X4 (COLUMN-MAJOR LAYOUT)
-// Handleiding-eisen: Matrix-klasse, transformaties en operator overloading
+// Matrix-klasse, transformaties en operator overloading
 
 class Transform {
 public:
@@ -102,7 +102,7 @@ inline Vec4 operator*(const Transform& mat, const Vec4& v) {
 
 
 // GAUSS-JORDAN ELIMINATIE & INVERSE MATRIX
-// Handleiding-eisen: Oplossen van stelsels en matrix-inversie
+// Oplossen van stelsels en matrix-inversie
 
 inline bool inverse(const Transform& input, Transform& out_inverse) {
     float aug[4][8];
@@ -150,7 +150,7 @@ inline bool inverse(const Transform& input, Transform& out_inverse) {
 }
 
 // TRANSFORMATIE KLASSEN
-// Handleiding-eisen: Translaties, rotaties (x,y,z) en schaling
+// Translaties, rotaties (x,y,z) en schaling
 
 class Translate : public Transform {
 public:

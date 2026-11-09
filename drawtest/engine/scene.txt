@@ -5,3 +5,4 @@ CYLINDER -0.8 0.0 0.0    1.0 1.0 1.0    0.3       NONE          ../images/nico.j
 SPHERE    0.8 0.0 0.0    1.0 1.0 1.0    1.0       NONE          ../images/P_Diddy_2000.jpg
 CUBE      2.4 0.0 0.0    1.0 1.0 1.0    1.0       GOLD          NONE
 CUBE      4.0 0.0 0.0    1.0 1.0 1.0    0.6       CYAN_PLASTIC  NONE
+CONE      2.4 1.5 0.0    1.0 1.0 1.0    1.0       CHROME        NONE

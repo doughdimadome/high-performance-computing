@@ -5,12 +5,15 @@
 #include <unordered_map>
 #include "camera_light.hpp"
 
+// SGI (Silicon Graphics) OpenGL Materialen bibliotheek.
+// Bevat de officiele floating-point waarden voor ambient, diffuse, specular en shininess.
+// Shininess is in de tabel genormaliseerd (0.0 - 1.0) en vermenigvuldigd met 128.0 voor Blinn-Phong.
 class MaterialLibrary {
 public:
     static Material getMaterial(const std::string& name) {
-        // Structuur: Ambient(r,g,b), Diffuse(r,g,b), Specular(r,g,b), Shininess (shine * 128.0), Opacity
+        // Map met vaste materiaalpresets uit de SGI specificatie
         static const std::unordered_map<std::string, Material> presets = {
-            // EDELSTENEN & METALEN
+            // Edelstenen & Metalen (Hoge speculariteit en specifieke ambient/diffuse waarden)
             {"EMERALD",   {{0.0215f, 0.1745f, 0.0215f},  {0.07568f, 0.61424f, 0.07568f}, {0.633f, 0.727811f, 0.633f},    76.8f, 1.0f}},
             {"JADE",      {{0.135f, 0.2225f, 0.1575f},   {0.54f, 0.89f, 0.63f},          {0.316228f, 0.316228f, 0.316228f}, 12.8f, 1.0f}},
             {"OBSIDIAN",  {{0.05375f, 0.05f, 0.06625f},  {0.18275f, 0.17f, 0.22525f},    {0.332741f, 0.328634f, 0.346435f}, 38.4f, 1.0f}},
@@ -24,20 +27,22 @@ public:
             {"GOLD",      {{0.24725f, 0.1995f, 0.0745f}, {0.75164f, 0.60648f, 0.22648f}, {0.628281f, 0.555802f, 0.366065f}, 51.2f, 1.0f}},
             {"SILVER",    {{0.19225f, 0.19225f, 0.19225f},{0.50754f, 0.50754f, 0.50754f},{0.508273f, 0.508273f, 0.508273f}, 51.2f, 1.0f}},
 
-            // PLASTICS
+            // Kunststoffen (Lage tot gemiddelde reflectie, matte of glimmende afwerking)
             {"BLACK_PLASTIC", {{0.0f, 0.0f, 0.0f}, {0.01f, 0.01f, 0.01f}, {0.50f, 0.50f, 0.50f}, 32.0f, 1.0f}},
             {"CYAN_PLASTIC",  {{0.0f, 0.1f, 0.06f}, {0.0f, 0.5098f, 0.5098f}, {0.5019f, 0.5019f, 0.5019f}, 32.0f, 1.0f}},
             {"RED_PLASTIC",   {{0.0f, 0.0f, 0.0f}, {0.5f, 0.0f, 0.0f}, {0.7f, 0.6f, 0.6f}, 32.0f, 1.0f}},
 
-            // RUBBERS
+            // Rubbervarianten (Zeer matte afwerking, hele lage shininess)
             {"RED_RUBBER",    {{0.05f, 0.0f, 0.0f}, {0.5f, 0.4f, 0.4f}, {0.7f, 0.04f, 0.04f}, 10.0f, 1.0f}}
         };
 
+        // Zoek de opgegeven materiaalnaam op in de map
         auto it = presets.find(name);
         if (it != presets.end()) {
             return it->second;
         }
 
+        // Fallback: retourneer een standaard neutraal materiaal als de naam niet bestaat
         return Material{};
     }
 };

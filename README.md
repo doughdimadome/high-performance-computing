@@ -1,4 +1,4 @@
-# 3D Custom OpenGL C++ Engine (Met Bonus-Features)
+# HPC Engine
 
 Een data-driven 3D rendering engine geschreven in C++ en OpenGL (Core Profile 3.3). De engine ondersteunt het inladen van 3D-scenes via externe configuratiebestanden (`scene.txt`), real-time camera- en multi-belichtingsbesturing, Blinn-Phong shading met meerdere lichtbronnen, SGI-materiaalpresets en textuurmapping.
 

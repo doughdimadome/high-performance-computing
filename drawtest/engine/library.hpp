@@ -68,7 +68,7 @@ public:
     inline Transform() {
         for (int c = 0; c < 4; ++c) { 
             for (int r = 0; r < 4; ++r) { 
-                m[c][r] = (c == r) ? 1.0f : 0.0f;
+                m[c][r] = (c == r) ? 1.0f : 0.0f; // Diagonaal = 1, rest = 0
             }
         }
     }
@@ -81,9 +81,9 @@ inline Transform operator*(const Transform& a, const Transform& b) {
     Transform result;
     for (int c = 0; c < 4; ++c) {
         for (int r = 0; r < 4; ++r) {
-            result.m[c][r] = 0.0f;
+            result.m[c][r] = 0.0f; // Initialiseer de cel
             for (int k = 0; k < 4; ++k) {
-                result.m[c][r] += a.m[k][r] * b.m[c][k];
+                result.m[c][r] += a.m[k][r] * b.m[c][k]; // Column-major multiplication
             }
         }
     }
@@ -93,8 +93,8 @@ inline Transform operator*(const Transform& a, const Transform& b) {
 // Vector-Matrix vermenigvuldiging voor coördinaten-transformaties
 inline Vec4 operator*(const Transform& mat, const Vec4& v) {
     Vec4 res;
-    res.x = mat.m[0][0]*v.x + mat.m[1][0]*v.y + mat.m[2][0]*v.z + mat.m[3][0]*v.w;
-    res.y = mat.m[0][1]*v.x + mat.m[1][1]*v.y + mat.m[2][1]*v.z + mat.m[3][1]*v.w;
+    res.x = mat.m[0][0]*v.x + mat.m[1][0]*v.y + mat.m[2][0]*v.z + mat.m[3][0]*v.w; // Column-major multiplication 4x
+    res.y = mat.m[0][1]*v.x + mat.m[1][1]*v.y + mat.m[2][1]*v.z + mat.m[3][1]*v.w; 
     res.z = mat.m[0][2]*v.x + mat.m[1][2]*v.y + mat.m[2][2]*v.z + mat.m[3][2]*v.w;
     res.w = mat.m[0][3]*v.x + mat.m[1][3]*v.y + mat.m[2][3]*v.z + mat.m[3][3]*v.w;
     return res;
@@ -119,23 +119,23 @@ inline bool inverse(const Transform& input, Transform& out_inverse) {
     for (int i = 0; i < 4; ++i) {
         int pivot = i;
         for (int r = i + 1; r < 4; ++r) {
-            if (std::abs(aug[r][i]) > std::abs(aug[pivot][i])) pivot = r;
+            if (std::abs(aug[r][i]) > std::abs(aug[pivot][i])) pivot = r; // Zoek de rij met de grootste pivot
         }
 
         if (pivot != i) {
-            for (int k = 0; k < 8; ++k) std::swap(aug[i][k], aug[pivot][k]);
+            for (int k = 0; k < 8; ++k) std::swap(aug[i][k], aug[pivot][k]); // Wissel de rijen
         }
 
         // Als de pivot 0 is, is det(A) = 0. De matrix is dan niet inverteerbaar.
         if (std::abs(aug[i][i]) < 1e-6f) return false;
 
         float div = aug[i][i];
-        for (int k = 0; k < 8; ++k) aug[i][k] /= div;
+        for (int k = 0; k < 8; ++k) aug[i][k] /= div; // Normaliseer de pivot-rij
 
         for (int r = 0; r < 4; ++r) {
             if (r != i) {
                 float factor = aug[r][i];
-                for (int k = 0; k < 8; ++k) aug[r][k] -= factor * aug[i][k];
+                for (int k = 0; k < 8; ++k) aug[r][k] -= factor * aug[i][k]; // Elimineer de andere rijen
             }
         }
     }
@@ -143,7 +143,7 @@ inline bool inverse(const Transform& input, Transform& out_inverse) {
     // Kopieer het resultaat A^-1
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
-            out_inverse.m[c][r] = aug[r][c + 4];
+            out_inverse.m[c][r] = aug[r][c + 4]; // De inverse matrix staat in de rechterhelft van de uitgebreide matrix
         }
     }
     return true;
@@ -152,41 +152,82 @@ inline bool inverse(const Transform& input, Transform& out_inverse) {
 // TRANSFORMATIE KLASSEN
 // Translaties, rotaties (x,y,z) en schaling
 
+// 3D Transformatieklassen
+// Conventie: Rijvectoren (v_nieuw = v_oud * M) 
+// Matrix layout: m[rij][kolom] met m[3][0..2] als translatiecomponenten
+
+
+/// @brief Verplaatst een object in de 3D-ruimte.
 class Translate : public Transform {
 public:
-    inline Translate(float tx, float ty, float tz) : Transform() {
-        m[3][0] = tx; m[3][1] = ty; m[3][2] = tz;
+    /**
+     * @param tx Verplaatsing langs de X-as
+     * @param ty Verplaatsing langs de Y-as
+     * @param tz Verplaatsing langs de Z-as
+     */
+    inline Translate(float tx, float ty, float tz) : Transform() { 
+        // Rij 3 bevat de translatiewaarden voor rijvector-vermenigvuldiging
+        m[3][0] = tx; 
+        m[3][1] = ty; 
+        m[3][2] = tz; 
     }
 };
 
+/// @brief Schaalt een object langs de X-, Y- en Z-as.
 class Scale : public Transform {
 public:
+    /**
+     * @param sx Schaalfactor X-as (1.0 = geen schaling)
+     * @param sy Schaalfactor Y-as (1.0 = geen schaling)
+     * @param sz Schaalfactor Z-as (1.0 = geen schaling)
+     */
     inline Scale(float sx, float sy, float sz) : Transform() {
-        m[0][0] = sx; m[1][1] = sy; m[2][2] = sz;
+        // Hoofddiagonaal bepaalt de schaalfactor per as
+        m[0][0] = sx; 
+        m[1][1] = sy; 
+        m[2][2] = sz;
     }
 };
 
+/// @brief Draait een object rond de X-as (rotatie in het YZ-vlak).
 class RotateX : public Transform {
 public:
+    /**
+     * @param a Rotatiehoek in radialen (rad = graden * PI / 180)
+     */
     inline RotateX(float a) : Transform() {
         float c = std::cos(a), s = std::sin(a);
-        m[1][1] = c; m[1][2] = s; m[2][1] = -s; m[2][2] = c;
+        // Beïnvloedt alleen de Y- en Z-coördinaten
+        m[1][1] = c;  m[1][2] = s; 
+        m[2][1] = -s; m[2][2] = c;
     }
 };
 
+/// @brief Draait een object rond de Y-as (rotatie in het XZ-vlak).
 class RotateY : public Transform {
 public:
+    /**
+     * @param a Rotatiehoek in radialen (rad = graden * PI / 180)
+     */
     inline RotateY(float a) : Transform() {
         float c = std::cos(a), s = std::sin(a);
-        m[0][0] = c; m[0][2] = -s; m[2][0] = s; m[2][2] = c;
+        // Beïnvloedt alleen de X- en Z-coördinaten
+        m[0][0] = c;  m[0][2] = -s; 
+        m[2][0] = s;  m[2][2] = c;
     }
 };
 
+/// @brief Draait een object rond de Z-as (rotatie in het XY-vlak).
 class RotateZ : public Transform {
 public:
+    /**
+     * @param a Rotatiehoek in radialen (rad = graden * PI / 180)
+     */
     inline RotateZ(float a) : Transform() {
         float c = std::cos(a), s = std::sin(a);
-        m[0][0] = c; m[0][1] = s; m[1][0] = -s; m[1][1] = c;
+        // Beïnvloedt alleen de X- en Y-coördinaten
+        m[0][0] = c;  m[0][1] = s; 
+        m[1][0] = -s; m[1][1] = c;
     }
 };
 

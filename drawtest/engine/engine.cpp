@@ -223,28 +223,28 @@ bool Engine::init_shaders() {
 
     void main() {
         vec3 norm = normalize(Normal);
-        vec3 viewDir = normalize(viewPos - FragPos);
-        vec4 texColor = texture(uTexture, TexCoord);
+        vec3 viewDir = normalize(viewPos - FragPos); // Richting van het fragment naar de camera
+        vec4 texColor = texture(uTexture, TexCoord); // Haal de textuurkleur op voor dit fragment
 
         vec3 totalLight = vec3(0.0);
 
         for (int i = 0; i < 2; i++) {
-            vec3 lightDir = normalize(lights[i].position - FragPos);
+            vec3 lightDir = normalize(lights[i].position - FragPos); // Richting van het fragment naar de lichtbron
 
-            vec3 ambient = lights[i].color * material.ambient;
+            vec3 ambient = lights[i].color * material.ambient; // Ambient component
 
-            float diff = max(dot(norm, lightDir), 0.0);
-            vec3 diffuse = lights[i].color * (diff * material.diffuse);
+            float diff = max(dot(norm, lightDir), 0.0); 
+            vec3 diffuse = lights[i].color * (diff * material.diffuse); // diffuse component (Lambertian reflectie)
 
-            vec3 halfwayDir = normalize(lightDir + viewDir);
+            vec3 halfwayDir = normalize(lightDir + viewDir); // Halfway vector voor Blinn-Phong specular reflectie
             float spec = pow(max(dot(norm, halfwayDir), 0.0), material.shininess);
-            vec3 specular = lights[i].color * (spec * material.specular);
+            vec3 specular = lights[i].color * (spec * material.specular); // specular component 
 
-            totalLight += (ambient + diffuse + specular);
+            totalLight += (ambient + diffuse + specular); // Accumuleer de belichting van alle lichten
         }
 
-        vec3 finalColor = totalLight * texColor.rgb;
-        FragColor = vec4(finalColor, material.opacity * texColor.a);
+        vec3 finalColor = totalLight * texColor.rgb; // Combineer belichting met textuurkleur
+        FragColor = vec4(finalColor, material.opacity * texColor.a); // Pas de alpha-waarde aan op basis van materiaaleigenschappen en textuur
     }
 )";
 
@@ -388,7 +388,7 @@ void Engine::run() {
         // View Matrix ophalen uit onze eigen wiskunde-library (library.hpp)
         Matrix4 view = camera.getViewMatrix();
         GLint loc_view = glGetUniformLocation(shaderProgram, "view");
-        if (loc_view != -1) glUniformMatrix4fv(loc_view, 1, GL_FALSE, &view.m[0][0]);
+        if (loc_view != -1) glUniformMatrix4fv(loc_view, 1, GL_FALSE, &view.m[0][0]); 
 
         // Perspective Projection Matrix opbouwen via GLM met dynamic FOV (voor zoom)
         glm::mat4 projection = glm::perspective(glm::radians(camera.fov), aspect, 0.1f, 100.0f);

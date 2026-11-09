@@ -7,6 +7,7 @@ Shape::~Shape() {
     if (ebo) glDeleteBuffers(1, &ebo);
 }
 
+// gpu buffer setup for vertices and indices voor OpenGL rendering
 void Shape::setupGpuBuffers(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices) {
     indexCount = static_cast<unsigned int>(indices.size());
 
@@ -36,16 +37,13 @@ void Shape::setupGpuBuffers(const std::vector<Vertex>& vertices, const std::vect
 
     glBindVertexArray(0);
 }
-
+// tekent de shape met de huidige OpenGL context en shaderprogramma
 void Shape::draw() const {
     glBindVertexArray(vao);
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
-
-
-// GEOMETRIE GENERATIE
-
+// GEOMETRIE GENERATIE (CUBE, PIRAMIDE, SPHERE, PLANE)
 
 // KUBUS (Middelpunt 0,0,0 - Ribbelengte 1)
 void Cube::generateGeometry() {
@@ -210,29 +208,29 @@ void Sphere::generateGeometry() {
 void Cone::generateGeometry() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
-    
+    // Parameters voor de kegel
     const int segments = 32;
     const float radius = 0.5f;
     const float halfHeight = 0.5f;
-    
+    // Apex van de kegel
     Vertex apex = {0.0f, halfHeight, 0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f};
-
+    // Genereer de basis van de kegel
     for (int i = 0; i <= segments; ++i) {
         float angle = i * 2.0f * 3.1415926535f / segments;
         float x = radius * std::cos(angle);
         float z = radius * std::sin(angle);
         float u = static_cast<float>(i) / segments;
-
+        // Normaalvector voor de zijkant van de kegel
         float nx = std::cos(angle);
         float ny = 0.5f;
         float nz = std::sin(angle);
-
+        // Voeg de vertex toe voor de basis van de kegel
         vertices.push_back({x, -halfHeight, z, nx, ny, nz, u, 0.0f});
     }
-
+    // Voeg de apex toe aan de vertices
     vertices.push_back(apex);
     unsigned int apexIndex = static_cast<unsigned int>(vertices.size() - 1);
-
+    // Genereer de indexen voor de zijkant van de kegel
     for (int i = 0; i < segments; ++i) {
         indices.push_back(i);
         indices.push_back(i + 1);

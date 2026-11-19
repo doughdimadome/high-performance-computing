@@ -88,15 +88,18 @@ public:
     }
 
     // Matrix-vector vermenigvuldiging (M * v) voor het transformeren van 4D-punten/vectoren
-    constexpr Vec4 operator*(const Vec4& v) const {
-        return {
-            m[0][0] * v.x + m[1][0] * v.y + m[2][0] * v.z + m[3][0] * v.w,
-            m[0][1] * v.x + m[1][1] * v.y + m[2][1] * v.z + m[3][1] * v.w,
-            m[0][2] * v.x + m[1][2] * v.y + m[2][2] * v.z + m[3][2] * v.w,
-            m[0][3] * v.x + m[1][3] * v.y + m[2][3] * v.z + m[3][3] * v.w
-        };
-    }
+    constexpr Vec4 operator*(const Vec4& v) const;
 };
+
+// Definieer de operator buiten de klasse, nadat Vec4 volledig bekend is.
+constexpr Vec4 Matrix4::operator*(const Vec4& v) const {
+    return Vec4{
+        m[0][0] * v.x + m[1][0] * v.y + m[2][0] * v.z + m[3][0] * v.w,
+        m[0][1] * v.x + m[1][1] * v.y + m[2][1] * v.z + m[3][1] * v.w,
+        m[0][2] * v.x + m[1][2] * v.y + m[2][2] * v.z + m[3][2] * v.w,
+        m[0][3] * v.x + m[1][3] * v.y + m[2][3] * v.z + m[3][3] * v.w
+    };
+}
 
 // Alias voor achterwaartse compatibiliteit
 using Transform = Matrix4;

@@ -110,6 +110,20 @@ bool Engine::loadSceneFromFile(const std::string& filepath) {
         }
     }
 
+// koppel een gele maan (child) aan het laatste object uit scene.txt (parent)
+    if (!scene.empty()) {
+        auto moon = ShapeFactory::createShape(ShapeType::SPHERE);
+        moon->parent = scene.back().get();
+        moon->position = {1.5f, 0.0f, 0.0f};
+        moon->scale = {0.35f, 0.35f, 0.35f};
+        moon->material.ambient = {0.3f, 0.25f, 0.05f};
+        moon->material.diffuse = {1.0f, 0.85f, 0.2f};
+        moon->material.specular = {1.0f, 1.0f, 1.0f};
+        moon->material.shininess = 64.0f;
+        moon->material.opacity = 1.0f;
+        scene.push_back(std::move(moon));
+    }
+
     return true;
 }
 
@@ -190,76 +204,105 @@ bool Engine::init_shaders() {
             Normal = mat3(transpose(inverse(model))) * aNormal;
             TexCoord = aTexCoord;
             
-            gl_Position = projection * view * model * vec4(aPos, 1.0);
+            gl_Position = projection * view * model * vec4(aPos, 1.0); // Eindpositie in clip space (MVP andersom vanwege OpenGL's column-major matrix layout)
         }
     )";
 
-    // Fragment Shader: Blinn-Phong belichtingsmodel met Ambient, Diffuse, Specular & Opacity
+    // Fragment Shader: Blinn-Phong belichtingsmodel met meerdere lichtbronnen en optionele mist
     const char* fragmentShaderSource = R"(
-    #version 330 core
-    out vec4 FragColor;
+        #version 330 core
+        out vec4 FragColor;
 
-    in vec3 FragPos;
-    in vec3 Normal;
-    in vec2 TexCoord;
+        in vec3 FragPos;
+        in vec3 Normal;
+        in vec2 TexCoord;
 
-    struct Material {
-        vec3 ambient;
-        vec3 diffuse;
-        vec3 specular;
-        float shininess;
-        float opacity;
-    };
+        struct Material {
+            vec3 ambient;
+            vec3 diffuse;
+            vec3 specular;
+            float shininess;
+            float opacity;
+        };
 
-    struct LightSource {
-        vec3 position;
-        vec3 color;
-    };
+        struct LightSource {
+            vec3 position;
+            vec3 color;
+        };
 
-    uniform Material material;
-    uniform LightSource lights[2]; // Array voor 2 lichten
-    uniform vec3 viewPos;
-    uniform sampler2D uTexture;
+        uniform Material material;
+        uniform LightSource lights[2];
+        uniform vec3 viewPos;
+        uniform sampler2D uTexture;
+        uniform bool enableFog;
 
-    void main() {
-        vec3 norm = normalize(Normal);
-        vec3 viewDir = normalize(viewPos - FragPos);
-        vec4 texColor = texture(uTexture, TexCoord);
+        void main() {
+            vec3 norm = normalize(Normal); // Normaliseren van de normaalvector
+            vec3 viewDir = normalize(viewPos - FragPos); // Richting van de camera naar het fragment
+            vec4 texColor = texture(uTexture, TexCoord); // Textuurkleur ophalen
 
-        vec3 totalLight = vec3(0.0);
+            vec3 totalLight = vec3(0.0);
 
-        for (int i = 0; i < 2; i++) {
-            vec3 lightDir = normalize(lights[i].position - FragPos);
+            for (int i = 0; i < 2; i++) {
+                vec3 lightDir = normalize(lights[i].position - FragPos); // Richting van het licht naar het fragment
 
-            vec3 ambient = lights[i].color * material.ambient;
+                vec3 ambient = lights[i].color * material.ambient; // Ambient component
 
-            float diff = max(dot(norm, lightDir), 0.0);
-            vec3 diffuse = lights[i].color * (diff * material.diffuse);
+                float diff = max(dot(norm, lightDir), 0.0); 
+                vec3 diffuse = lights[i].color * (diff * material.diffuse); // Diffuse component
 
-            vec3 halfwayDir = normalize(lightDir + viewDir);
-            float spec = pow(max(dot(norm, halfwayDir), 0.0), material.shininess);
-            vec3 specular = lights[i].color * (spec * material.specular);
+                vec3 halfwayDir = normalize(lightDir + viewDir); // Halfway vector voor Blinn-Phong
+                float spec = pow(max(dot(norm, halfwayDir), 0.0), material.shininess); 
+                vec3 specular = lights[i].color * (spec * material.specular); // Specular component
 
-            totalLight += (ambient + diffuse + specular);
+                totalLight += (ambient + diffuse + specular); // Totaal licht van alle lichtbronnen optellen
+            }
+
+            vec3 finalColor = totalLight * texColor.rgb;
+
+            if (enableFog) {
+                float dist = length(viewPos - FragPos);
+                float fogDensity = 0.16;
+                float d = dist * fogDensity;
+                float fogFactor = clamp(exp(-(d * d)), 0.0, 1.0);
+                vec3 fogColor = vec3(0.55, 0.60, 0.65); // Heldere grijsblauwe mistkleur
+                finalColor = mix(fogColor, finalColor, fogFactor);
+            }
+
+            FragColor = vec4(finalColor, material.opacity * texColor.a);
         }
+    )";
 
-        vec3 finalColor = totalLight * texColor.rgb;
-        FragColor = vec4(finalColor, material.opacity * texColor.a);
-    }
-)";
+    int success;
+    char infoLog[512];
 
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
     glCompileShader(vertexShader);
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cerr << "[SHADER FOUT - VERTEX]\n" << infoLog << std::endl;
+    }
 
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        std::cerr << "[SHADER FOUT - FRAGMENT]\n" << infoLog << std::endl;
+    }
 
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cerr << "[SHADER FOUT - LINKING]\n" << infoLog << std::endl;
+    }
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
@@ -279,6 +322,10 @@ void Engine::run() {
     bool rKeyPressed = false;
     int colorCycle = 0;
     bool cKeyPressed = false;
+    bool enableFog = false; // Toggle voor mist-effect
+    bool fKeyPressed = false; // Voor het detecteren van de F-toets
+    bool enableGravity = false; // Toggle voor zwaartekracht-effect
+    bool gKeyPressed = false; // Voor het detecteren van de G-toets
 
     // Maak twee visuele bollen die de posities van de lichtbronnen aangeven in de 3D-wereld
     Light light1;
@@ -370,6 +417,25 @@ void Engine::run() {
         if (camera.pitch > 1.5f) camera.pitch = 1.5f;
         if (camera.pitch < -1.5f) camera.pitch = -1.5f;
 
+        // Mistigheid aan/uit via toets 'F'
+        if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && !fKeyPressed) {
+            fKeyPressed = true;
+            enableFog = !enableFog;
+        }
+        if (glfwGetKey(window, GLFW_KEY_F) == GLFW_RELEASE) fKeyPressed = false;
+
+        // Zwaartekracht & stuiteren aan/uit via toets 'G' (geeft ook een opwaartse impuls)
+        if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS && !gKeyPressed) {
+            gKeyPressed = true;
+            enableGravity = !enableGravity;
+            if (enableGravity) {
+                for (auto& shape : scene) {
+                    if (shape->parent == nullptr) shape->velocityY = 4.0f;
+                }
+            }
+        }
+        if (glfwGetKey(window, GLFW_KEY_G) == GLFW_RELEASE) gKeyPressed = false;
+
         
         // RENDER PASS
         
@@ -380,7 +446,11 @@ void Engine::run() {
         glViewport(0, 0, width, height);
         float aspect = static_cast<float>(width) / static_cast<float>(height);
 
-        glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+        if (enableFog) {
+            glClearColor(0.55f, 0.60f, 0.65f, 1.0f); // Lucht krijgt dezelfde kleur als de mist
+        } else {
+            glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+        }
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
@@ -402,6 +472,7 @@ void Engine::run() {
         glUniform3f(glGetUniformLocation(shaderProgram, "lights[1].color"), light2.color.x, light2.color.y, light2.color.z);
         
         glUniform3f(glGetUniformLocation(shaderProgram, "viewPos"), camera.position.x, camera.position.y, camera.position.z);
+        glUniform1i(glGetUniformLocation(shaderProgram, "enablefog"), enableFog ? 1 : 0);
 
         // Render alle objecten die vanuit scene.txt zijn in geladen
         for (size_t i = 0; i < scene.size(); ++i) {
@@ -409,7 +480,23 @@ void Engine::run() {
 
             if (enableRotation) {
                 shape->rotation.y += rotationSpeed * (i + 1) * deltaTime;
-                shape->rotation.x += rotationSpeed * 0.5f * deltaTime;
+                // shape->rotation.x += rotationSpeed * 0.5f * deltaTime;
+            }
+
+            // Zwaartekracht en stuiteren op het grondvlak (y = -1.5)
+            if (enableGravity && shape->parent == nullptr) {
+                float gravity = -9.81f;
+                float groundY = -1.5f;
+                float halfHeight = 0.5f * shape->scale.y;
+
+                shape->velocityY += gravity * deltaTime;
+                shape->position.y += shape->velocityY * deltaTime;
+
+                // Terugstuiteren bij raken van grondvlak (restitutiecoëfficiënt = 0.8)
+                if (shape->position.y - halfHeight < groundY) {
+                    shape->position.y = groundY + halfHeight;
+                    shape->velocityY = -shape->velocityY * 0.8f;
+                }
             }
 
             // Model Matrix berekenen via GLM

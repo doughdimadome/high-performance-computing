@@ -12,6 +12,9 @@ Een data-driven 3D rendering engine geschreven in C++ en OpenGL (Core Profile 3.
 * **Blinn-Phong Shading & SGI Materialen**: Realistische belichting met ondersteuning voor optische SGI-materiaalpresets (zoals `GOLD`, `RUBY`, `EMERALD`, `CYAN_PLASTIC`) én de mogelijkheid voor fototexturen zonder kleurverstoring.
 * **FPS Camera System & Zoom**: Vrije 3D-camerabeweging met WASD-toetsen, muiskijkrichting en dynamische Zoom (FOV) via het scrollwiel.
 * **Visual Debuggers**: Fysiek zichtbare bol-markers voor beide lichtbronnen in de 3D-ruimte.
+* **Hiërarchie van vormen (Scene Graph)** Een sub-vorm (zoals een maan) koppelen aan een parent-vorm zodat deze automatisch meedraait en meebeweegt in diens lokale assenstelsel.
+* **Zwaartekracht & stuiteren op een grondvlak** Fysica-simulatie met valversnelling ($g = -9.81\text{ m/s}^2$) en elastische botsing op een grondvlak.   
+* **Mistigheid / atmosferisch perspectief**  Exponentiële dieptemist in de Fragment Shader waardoor objecten verder weg vloeiend opgaan in de achtergrond.
 
 ---
 
@@ -52,3 +55,5 @@ g++ main.cpp engine.cpp shapes.cpp -o app.exe -lglew32 -lglfw3 -lopengl32 -lgdi3
 | **R** | Rotatie van de 3D-objecten pauzeren / hervatten |
 | **1 of 2** | veranderen van lightbron |
 | **ESC** | Het venster en de engine afsluiten |
+| **G** | mist aan/uitzetten |
+| **F** | zwaartekracht aan/uitzetten |

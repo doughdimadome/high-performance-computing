@@ -2,53 +2,54 @@
 #define LIBRARY_HPP
 
 #include <cmath>
-#include <iostream>
+#include <utility> // Voor std::swap bij Gauss-Jordan pivoting
 
-// Pi voor omrekening van graden naar radialen
+// Wiskundige constante Pi voor omrekening van graden naar radialen
 inline constexpr float PI = 3.14159265359f;
 
 
-// VECTOR WIKUNDE & TEMPLATES
-// Handleiding-eisen: Coördinaten-klassen, vectorbewerkingen en operator overloading
+// 1. VECTOR WISKUNDE (Templates, References & Operator Overloading)
 
-// Generic 3D Vector template voor flexibiliteit met types (float, int, double)
+
+// Generieke 3D-vector template (standaard float, maar werkt ook met int/double)
 template <typename T = float>
 struct Vec3T {
     T x{0}, y{0}, z{0};
 
-    // Vector optellen en aftrekken
-    inline Vec3T operator+(const Vec3T& v) const { return {x + v.x, y + v.y, z + v.z}; }
-    inline Vec3T operator-(const Vec3T& v) const { return {x - v.x, y - v.y, z - v.z}; }
-    inline Vec3T operator*(T s) const { return {x * s, y * s, z * s}; }
+    // Overloaded operators voor basis vectorbewerkingen
+    constexpr Vec3T operator+(const Vec3T& v) const { return {x + v.x, y + v.y, z + v.z}; }
+    constexpr Vec3T operator-(const Vec3T& v) const { return {x - v.x, y - v.y, z - v.z}; }
+    constexpr Vec3T operator*(T scalar) const       { return {x * scalar, y * scalar, z * scalar}; }
 };
 
+// Type-alias zodat we overal kortweg 'Vec3' kunnen gebruiken
 using Vec3 = Vec3T<float>;
 
-// 4D Homogene coördinaten (w = 1.0 voor posities, w = 0.0 voor richtingsvectoren)
+// 4D Homogene vector (w = 1.0 voor een punt in de ruimte, w = 0.0 voor een richting)
 struct Vec4 {
     float x{0.0f}, y{0.0f}, z{0.0f}, w{1.0f};
 };
 
-// Lengte berekend met de 3D stelling van Pythagoras
+// Berekent de Euclidische lengte (norm) van een vector via Pythagoras in 3D
 inline float length(const Vec3& v) {
     return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-// Normaliseren maakt de lengte van een vector precies 1, zonder de richting aan te passen
+// Normaliseert een vector naar lengte 1.0 (eenheidsvector) met beveiliging tegen delen door 0
 inline Vec3 normalize(const Vec3& v) {
     float len = length(v);
     return (len > 1e-5f) ? Vec3{v.x / len, v.y / len, v.z / len} : Vec3{0.0f, 0.0f, 0.0f};
 }
 
-// Inproduct (Dot product): Geeft de cosinus van de hoek tussen twee vectoren.
-// Wordt in de fragment shader gebruikt voor de diffuse en speculaire lichtberekening.
-inline float dot(const Vec3& u, const Vec3& v) {
+// Inproduct (Dot product): geeft ||u|| * ||v|| * cos(hoek)
+// Essentieel voor lichtinval (diffuse & specular) in het Blinn-Phong model
+constexpr float dot(const Vec3& u, const Vec3& v) {
     return u.x * v.x + u.y * v.y + u.z * v.z;
 }
 
-// Uitproduct (Cross product): Berekent een vector die haaks op u en v staat.
-// Handig om oppervlaktenormalen uit 3 hoekpunten te berekenen.
-inline Vec3 cross(const Vec3& u, const Vec3& v) {
+// Uitproduct (Cross product): levert een vector op die loodrecht (90 graden) op u en v staat
+// Wordt gebruikt voor normaalvectoren en camera-assen
+constexpr Vec3 cross(const Vec3& u, const Vec3& v) {
     return {
         u.y * v.z - u.z * v.y,
         u.z * v.x - u.x * v.z,
@@ -57,90 +58,104 @@ inline Vec3 cross(const Vec3& u, const Vec3& v) {
 }
 
 
-// MATRIX 4X4 (COLUMN-MAJOR LAYOUT)
-// Matrix-klasse, transformaties en operator overloading
+// 2. MATRIX 4X4 (Column-Major Layout voor OpenGL)
 
-class Transform {
+
+class Matrix4 {
 public:
-    float m[4][4]; // Column-major: m[kolom][rij] voor directe aansluiting op OpenGL
+    // Opgeslagen als m[kolom][rij] (column-major), zodat OpenGL het geheugen direct kan uitlezen
+    // Standaard geïnitialiseerd als de 4x4 Identiteitsmatrix (enen op de hoofddiagonaal)
+    float m[4][4] = {
+        {1.0f, 0.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f, 1.0f}
+    };
 
-    // Identiteitsmatrix (enen op de diagonaal)
-    inline Transform() {
-        for (int c = 0; c < 4; ++c) { 
-            for (int r = 0; r < 4; ++r) { 
-                m[c][r] = (c == r) ? 1.0f : 0.0f;
+    // Matrix-matrix vermenigvuldiging (A * B)
+    // Let op: niet commutatief (A * B != B * A); transformaties worden van rechts naar links toegepast
+    constexpr Matrix4 operator*(const Matrix4& b) const {
+        Matrix4 result{};
+        for (int c = 0; c < 4; ++c) {
+            for (int r = 0; r < 4; ++r) {
+                result.m[c][r] = 0.0f;
+                for (int k = 0; k < 4; ++k) {
+                    result.m[c][r] += m[k][r] * b.m[c][k];
+                }
             }
         }
+        return result;
+    }
+
+    // Matrix-vector vermenigvuldiging (M * v) voor het transformeren van 4D-punten/vectoren
+    constexpr Vec4 operator*(const Vec4& v) const {
+        return {
+            m[0][0] * v.x + m[1][0] * v.y + m[2][0] * v.z + m[3][0] * v.w,
+            m[0][1] * v.x + m[1][1] * v.y + m[2][1] * v.z + m[3][1] * v.w,
+            m[0][2] * v.x + m[1][2] * v.y + m[2][2] * v.z + m[3][2] * v.w,
+            m[0][3] * v.x + m[1][3] * v.y + m[2][3] * v.z + m[3][3] * v.w
+        };
     }
 };
 
-using Matrix4 = Transform;
-
-// Matrix vermenigvuldiging (A * B). Let op: Volgorde is bepalend (A*B != B*A)!
-inline Transform operator*(const Transform& a, const Transform& b) {
-    Transform result;
-    for (int c = 0; c < 4; ++c) {
-        for (int r = 0; r < 4; ++r) {
-            result.m[c][r] = 0.0f;
-            for (int k = 0; k < 4; ++k) {
-                result.m[c][r] += a.m[k][r] * b.m[c][k];
-            }
-        }
-    }
-    return result;
-}
-
-// Vector-Matrix vermenigvuldiging voor coördinaten-transformaties
-inline Vec4 operator*(const Transform& mat, const Vec4& v) {
-    Vec4 res;
-    res.x = mat.m[0][0]*v.x + mat.m[1][0]*v.y + mat.m[2][0]*v.z + mat.m[3][0]*v.w;
-    res.y = mat.m[0][1]*v.x + mat.m[1][1]*v.y + mat.m[2][1]*v.z + mat.m[3][1]*v.w;
-    res.z = mat.m[0][2]*v.x + mat.m[1][2]*v.y + mat.m[2][2]*v.z + mat.m[3][2]*v.w;
-    res.w = mat.m[0][3]*v.x + mat.m[1][3]*v.y + mat.m[2][3]*v.z + mat.m[3][3]*v.w;
-    return res;
-}
+// Alias voor achterwaartse compatibiliteit
+using Transform = Matrix4;
 
 
-// GAUSS-JORDAN ELIMINATIE & INVERSE MATRIX
-// Oplossen van stelsels en matrix-inversie
+// 3. GAUSS-JORDAN ELIMINATIE (Matrix Inversie)
 
-inline bool inverse(const Transform& input, Transform& out_inverse) {
+
+// Berekent de inverse matrix A^-1 via Gauss-Jordan eliminatie met partial pivoting.
+// Geeft 'false' terug als de determinant 0 is (niet-inverteerbare/singuliere matrix).
+inline bool inverse(const Matrix4& input, Matrix4& out_inverse) {
     float aug[4][8];
 
-    // Vul de uitgebreide matrix [A | I]
+    // Stap 1: Bouw de uitgebreide matrix [A | I] op (links invoer, rechts identiteitsmatrix)
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
-            aug[r][c] = input.m[c][r];
+            aug[r][c]     = input.m[c][r];
             aug[r][c + 4] = (r == c) ? 1.0f : 0.0f;
         }
     }
 
-    // Gauss-Jordan eliminatie met pivoting
+    // Stap 2: Veeg elke kolom schoon naar gereduceerde rij-echelonvorm
     for (int i = 0; i < 4; ++i) {
+        // Zoek de rij met het grootste spilelement (partial pivoting) voor numerieke stabiliteit
         int pivot = i;
         for (int r = i + 1; r < 4; ++r) {
-            if (std::abs(aug[r][i]) > std::abs(aug[pivot][i])) pivot = r;
+            if (std::abs(aug[r][i]) > std::abs(aug[pivot][i])) {
+                pivot = r;
+            }
         }
 
+        // Wissel de huidige rij met de pivot-rij
         if (pivot != i) {
-            for (int k = 0; k < 8; ++k) std::swap(aug[i][k], aug[pivot][k]);
+            for (int k = 0; k < 8; ++k) {
+                std::swap(aug[i][k], aug[pivot][k]);
+            }
         }
 
-        // Als de pivot 0 is, is det(A) = 0. De matrix is dan niet inverteerbaar.
+        // Controleer of de matrix inverteerbaar is (spilelement mag niet 0 zijn)
         if (std::abs(aug[i][i]) < 1e-6f) return false;
 
+        // Deel de pivot-rij zodat er een 1 op de hoofddiagonaal komt te staan
         float div = aug[i][i];
-        for (int k = 0; k < 8; ++k) aug[i][k] /= div;
+        for (int k = 0; k < 8; ++k) {
+            aug[i][k] /= div;
+        }
 
+        // Maak alle overige getallen boven en onder de pivot in deze kolom 0
         for (int r = 0; r < 4; ++r) {
             if (r != i) {
                 float factor = aug[r][i];
-                for (int k = 0; k < 8; ++k) aug[r][k] -= factor * aug[i][k];
+                for (int k = 0; k < 8; ++k) {
+                    aug[r][k] -= factor * aug[i][k];
+                }
             }
         }
     }
 
-    // Kopieer het resultaat A^-1
+    // Stap 3: Kopieer de rechterhelft (A^-1) terug naar column-major formaat
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
             out_inverse.m[c][r] = aug[r][c + 4];
@@ -149,60 +164,74 @@ inline bool inverse(const Transform& input, Transform& out_inverse) {
     return true;
 }
 
-// TRANSFORMATIE KLASSEN
-// Translaties, rotaties (x,y,z) en schaling
 
-class Translate : public Transform {
+// 4. TRANSFORMATIE- EN PROJECTIEKLASSEN (Overerving van Matrix4)
+
+
+// Translatie: plaatst de verschuiving (tx, ty, tz) in de 4e kolom van de matrix
+class Translate : public Matrix4 {
 public:
-    inline Translate(float tx, float ty, float tz) : Transform() {
-        m[3][0] = tx; m[3][1] = ty; m[3][2] = tz;
+    constexpr Translate(float tx, float ty, float tz) {
+        m[3][0] = tx;
+        m[3][1] = ty;
+        m[3][2] = tz;
     }
 };
 
-class Scale : public Transform {
+// Schaling: zet de schaalfactoren (sx, sy, sz) op de hoofddiagonaal
+class Scale : public Matrix4 {
 public:
-    inline Scale(float sx, float sy, float sz) : Transform() {
-        m[0][0] = sx; m[1][1] = sy; m[2][2] = sz;
+    constexpr Scale(float sx, float sy, float sz) {
+        m[0][0] = sx;
+        m[1][1] = sy;
+        m[2][2] = sz;
     }
 };
 
-class RotateX : public Transform {
+// Rotatie om de X-as (hoek 'a' in radialen)
+class RotateX : public Matrix4 {
 public:
-    inline RotateX(float a) : Transform() {
+    RotateX(float a) {
         float c = std::cos(a), s = std::sin(a);
-        m[1][1] = c; m[1][2] = s; m[2][1] = -s; m[2][2] = c;
+        m[1][1] = c;  m[1][2] = s;
+        m[2][1] = -s; m[2][2] = c;
     }
 };
 
-class RotateY : public Transform {
+// Rotatie om de Y-as (hoek 'a' in radialen)
+class RotateY : public Matrix4 {
 public:
-    inline RotateY(float a) : Transform() {
+    RotateY(float a) {
         float c = std::cos(a), s = std::sin(a);
-        m[0][0] = c; m[0][2] = -s; m[2][0] = s; m[2][2] = c;
+        m[0][0] = c; m[0][2] = -s;
+        m[2][0] = s; m[2][2] = c;
     }
 };
 
-class RotateZ : public Transform {
+// Rotatie om de Z-as (hoek 'a' in radialen)
+class RotateZ : public Matrix4 {
 public:
-    inline RotateZ(float a) : Transform() {
+    RotateZ(float a) {
         float c = std::cos(a), s = std::sin(a);
-        m[0][0] = c; m[0][1] = s; m[1][0] = -s; m[1][1] = c;
+        m[0][0] = c;  m[0][1] = s;
+        m[1][0] = -s; m[1][1] = c;
     }
 };
 
-// Perspectiefprojectie matrix (comprimeert de 3D-kijkpiramide naar Clip Space)
-class Perspective : public Transform {
+// Perspectiefprojectie: vormt het kijkfrustum om naar Normalized Device Coordinates (NDC)
+class Perspective : public Matrix4 {
 public:
-    inline Perspective(float fov_deg, float aspect, float zNear = 0.1f, float zFar = 100.0f) : Transform() {
+    Perspective(float fov_deg, float aspect, float zNear = 0.1f, float zFar = 100.0f) {
         float fov_rad = fov_deg * (PI / 180.0f);
-        float zp = 1.0f / std::tan(fov_rad / 2.0f);
-        m[0][0] = zp / aspect;
-        m[1][1] = zp;
+        float focalLength = 1.0f / std::tan(fov_rad / 2.0f);
+
+        m[0][0] = focalLength / aspect;
+        m[1][1] = focalLength;
         m[2][2] = (zFar + zNear) / (zNear - zFar);
-        m[2][3] = -1.0f;
+        m[2][3] = -1.0f; // Kopieert -z naar de w-component voor perspectiefdeling
         m[3][2] = (2.0f * zFar * zNear) / (zNear - zFar);
         m[3][3] = 0.0f;
     }
 };
 
-#endif // LIBRARY_HPP 
+#endif // LIBRARY_HPP

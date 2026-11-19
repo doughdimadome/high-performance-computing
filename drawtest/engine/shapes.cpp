@@ -46,7 +46,6 @@ void Shape::draw() const {
 
 // GEOMETRIE GENERATIE
 
-
 // KUBUS (Middelpunt 0,0,0 - Ribbelengte 1)
 void Cube::generateGeometry() {
     std::vector<Vertex> vertices = {

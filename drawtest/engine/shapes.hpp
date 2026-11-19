@@ -32,6 +32,9 @@ public:
     Material material;
     GLuint textureID = 0;
 
+    Shape* parent = nullptr; // Pointer naar oudervorm (voor hiërarchische transformaties)
+    float velocityY = 0.0f; // Snelheid in Y-richting (voor animatie)
+
     virtual ~Shape();
     virtual void generateGeometry() = 0;
 
@@ -43,9 +46,12 @@ public:
         model = glm::rotate(model, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::rotate(model, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
         model = glm::scale(model, glm::vec3(scale.x, scale.y, scale.z));
+
+        if (parent) {
+            model = parent->getModelMatrix() * model;
+        }
         return model;
     }
-
     void draw() const;
 };
 

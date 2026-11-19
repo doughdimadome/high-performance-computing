@@ -31,6 +31,8 @@ int main() {
     std::cout << "R                     : Rotatie pauzeren/hervatten" << std::endl;
     std::cout << "1 of 2                   : Wissel tussen Licht 1 en Licht 2" << std::endl;
     std::cout << "ESC                   : Afsluiten" << std::endl;
+    std::cout << "G                     : Mist aan/uit" << std::endl;
+    std::cout << "F                     : Zwaartekracht aan/uit" << std::endl;
 
     engine.run();
 

@@ -263,6 +263,9 @@ bool Engine::init_shaders() {
     }
 )";
 
+    int success;
+    char infoLog[512];
+
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
     glCompileShader(vertexShader);

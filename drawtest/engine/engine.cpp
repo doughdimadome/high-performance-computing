@@ -236,45 +236,32 @@ bool Engine::init_shaders() {
         uniform sampler2D uTexture;
         uniform bool enableFog;
 
-        void main() {
-            vec3 norm = normalize(Normal); // Normaliseren van de normaalvector
-            vec3 viewDir = normalize(viewPos - FragPos); // Richting van de camera naar het fragment
-            vec4 texColor = texture(uTexture, TexCoord); // Textuurkleur ophalen
+    void main() {
+        vec3 norm = normalize(Normal);
+        vec3 viewDir = normalize(viewPos - FragPos);
+        vec4 texColor = texture(uTexture, TexCoord);
 
             vec3 totalLight = vec3(0.0);
 
-            for (int i = 0; i < 2; i++) {
-                vec3 lightDir = normalize(lights[i].position - FragPos); // Richting van het licht naar het fragment
+        for (int i = 0; i < 2; i++) {
+            vec3 lightDir = normalize(lights[i].position - FragPos);
 
-                vec3 ambient = lights[i].color * material.ambient; // Ambient component
+            vec3 ambient = lights[i].color * material.ambient;
 
-                float diff = max(dot(norm, lightDir), 0.0); 
-                vec3 diffuse = lights[i].color * (diff * material.diffuse); // Diffuse component
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuse = lights[i].color * (diff * material.diffuse);
 
-                vec3 halfwayDir = normalize(lightDir + viewDir); // Halfway vector voor Blinn-Phong
-                float spec = pow(max(dot(norm, halfwayDir), 0.0), material.shininess); 
-                vec3 specular = lights[i].color * (spec * material.specular); // Specular component
+            vec3 halfwayDir = normalize(lightDir + viewDir);
+            float spec = pow(max(dot(norm, halfwayDir), 0.0), material.shininess);
+            vec3 specular = lights[i].color * (spec * material.specular);
 
-                totalLight += (ambient + diffuse + specular); // Totaal licht van alle lichtbronnen optellen
-            }
-
-            vec3 finalColor = totalLight * texColor.rgb;
-
-            if (enableFog) {
-                float dist = length(viewPos - FragPos);
-                float fogDensity = 0.16;
-                float d = dist * fogDensity;
-                float fogFactor = clamp(exp(-(d * d)), 0.0, 1.0);
-                vec3 fogColor = vec3(0.55, 0.60, 0.65); // Heldere grijsblauwe mistkleur
-                finalColor = mix(fogColor, finalColor, fogFactor);
-            }
-
-            FragColor = vec4(finalColor, material.opacity * texColor.a);
+            totalLight += (ambient + diffuse + specular);
         }
-    )";
 
-    int success;
-    char infoLog[512];
+        vec3 finalColor = totalLight * texColor.rgb;
+        FragColor = vec4(finalColor, material.opacity * texColor.a);
+    }
+)";
 
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
@@ -458,7 +445,7 @@ void Engine::run() {
         // View Matrix ophalen uit onze eigen wiskunde-library (library.hpp)
         Matrix4 view = camera.getViewMatrix();
         GLint loc_view = glGetUniformLocation(shaderProgram, "view");
-        if (loc_view != -1) glUniformMatrix4fv(loc_view, 1, GL_FALSE, &view.m[0][0]);
+        if (loc_view != -1) glUniformMatrix4fv(loc_view, 1, GL_FALSE, &view.m[0][0]); 
 
         // Perspective Projection Matrix opbouwen via GLM met dynamic FOV (voor zoom)
         glm::mat4 projection = glm::perspective(glm::radians(camera.fov), aspect, 0.1f, 100.0f);
